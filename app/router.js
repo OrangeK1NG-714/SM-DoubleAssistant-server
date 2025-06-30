@@ -3,7 +3,8 @@
  */
 module.exports = app => {
   const { router, controller } = app;
-  router.get('/api', controller.home.index);
-  //登录
-  router.get('/api/login',controller.login.Login)
+  //注册用户
+  router.post('/api/admin/register', controller.userinfo.userRegister)
+  //登录用户
+  router.post('/api/admin/login', controller.userinfo.userLogin)
 };
