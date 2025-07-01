@@ -4,7 +4,7 @@
 module.exports = app => {
   const { router, controller } = app;
   //注册用户
-  router.post('/api/admin/register', controller.userinfo.userRegister)
+  router.post('/api/admin/register', app.middleware.jwt(), controller.userinfo.userRegister)
   //登录用户
   router.post('/api/admin/login', controller.userinfo.userLogin)
 };

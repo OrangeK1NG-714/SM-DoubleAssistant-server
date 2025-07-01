@@ -11,6 +11,12 @@ module.exports = app => {
         password: {
             type: String,
             required: true,
+        },
+        role: {
+            type: String,
+            required: true,
+            enum:['admin','student','teacher'],
+            default:'student'
         }
     }, { versionKey: false })
     return mongoose.model('User', UserSchema)

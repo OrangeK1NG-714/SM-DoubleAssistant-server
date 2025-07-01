@@ -1,14 +1,16 @@
 module.exports = app => {
     const { validator } = app
-    //验证手机号码格式不正确
-    validator.addRule('adminPhone', (rule, value) => {
-        if(!/^1\d{10}$/.test(value.trim())){
+    //验证账号格式在6-10位数字之间
+    validator.addRule('registerUsername', (rule, value) => {
+        const trimmedValue = value.toString().trim(); // 确保是字符串并去除空格
+        if (!/^\d{6,10}$/.test(trimmedValue)) {
             return rule.tips
         }
-    })
-    //6-8位的数字和字母结合
-     validator.addRule('adminPassword', (rule, value) => {
-        if(!/^(?=.*\d)(?=.*[a-zA-Z]).{6,8}$/.test(value.trim())){
+    });
+
+    //6-20位的数字和字母结合
+     validator.addRule('registerUserPassword', (rule, value) => {
+        if(!/^[a-zA-Z0-9]{6,20}$/.test(value.trim())){
             return rule.tips
         }
     })
