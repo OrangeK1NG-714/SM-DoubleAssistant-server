@@ -6,5 +6,7 @@ module.exports = app => {
   //注册用户
   router.post('/api/admin/register', app.middleware.jwt(), controller.userinfo.userRegister)
   //登录用户
-  router.post('/api/admin/login', controller.userinfo.userLogin)
+  router.post('/api/user/login', controller.userinfo.userLogin)
+  //获取用户信息
+  router.get('/api/user/detail', controller.userinfo.getUserDetail);
 };

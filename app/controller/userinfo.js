@@ -27,6 +27,23 @@ class UserinfoController extends Controller {
         console.log(data, code, msg);
         ctx.send(data, code, msg)
     }
+    // 获取用户详细信息
+    async getUserDetail() {
+        const { ctx, service } = this;
+        const { username, role } = ctx.query;
+        console.log(username, role);
+        console.log(111111111);
+
+        if (!username || !role) {
+            ctx.body = { code: 400, msg: '缺少参数' };
+            return;
+        }
+        const res = await service.userinfo.getUserDetail(username, role);
+        console.log('----------');
+        console.log(res);
+        
+        ctx.body = res;
+    }
 }
 
 module.exports = UserinfoController;
