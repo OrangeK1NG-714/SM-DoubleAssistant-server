@@ -6,13 +6,16 @@ class UserinfoController extends Controller {
     //注册用户账号
     async userRegister() {
         const { ctx, service } = this
-        const { username, password, role } = ctx.request.body
+        const { username, password, role, name } = ctx.request.body
         ctx.validate({
             username: { type: 'registerUsername', tips: '账号格式不正确' },
             password: { type: 'registerUserPassword', tips: '密码需要6-20位的字母和数字' }
         }, ctx.request.body)
-        // ctx.validate({ phone: { type: 'adminPhone', tips: '手机格式不正确' } }, ctx.request.body)
-        const res = await service.userinfo.userRegister(username, password, role)
+        if (role === 'teacher' && !name) {
+            ctx.send([], 400, '教师注册必须填写姓名')
+            return
+        }
+        const res = await service.userinfo.userRegister(username, password, role, name)
         ctx.send([], res.code, res.msg)
     }
     //登录账号post
@@ -31,19 +34,14 @@ class UserinfoController extends Controller {
     async getUserDetail() {
         const { ctx, service } = this;
         const { username, role } = ctx.query;
-        console.log(username, role);
-        console.log(111111111);
-
         if (!username || !role) {
             ctx.body = { code: 400, msg: '缺少参数' };
             return;
         }
         const res = await service.userinfo.getUserDetail(username, role);
-        console.log('----------');
-        console.log(res);
-        
         ctx.body = res;
     }
+    
 }
 
 module.exports = UserinfoController;

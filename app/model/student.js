@@ -5,7 +5,6 @@ module.exports = app => {
     const Schema = mongoose.Schema;
     const StudentSchema = new Schema({
         data: { type: Object, default: {} },
-        name: { type: String, default: '' },
         studentId: { type: String, default: '' },
         mentor: { type: String, default: '' }
     }, { versionKey: false });

@@ -4,7 +4,7 @@ const Service = require('egg').Service;
 const crypto = require('crypto')
 class UserinfoService extends Service {
     //注册用户账号
-    async userRegister(username, password, role = 'student') {
+    async userRegister(username, password, role = 'student', name = '') {
         //判断是否已存在用户
         const db = this.ctx.model.Userinfo
         const res = await db.find({ username })
@@ -20,14 +20,13 @@ class UserinfoService extends Service {
             // 根据 role 创建对应表
             if (role === 'student') {
                 await this.ctx.model.Student.create({
-                    name: '',
                     studentId: username,
                     mentor: '',
                     data: {}
                 });
             } else if (role === 'teacher') {
                 await this.ctx.model.Teacher.create({
-                    name: '',
+                    name: name || '',
                     teacherId: username,
                     msg: ''
                 });
@@ -64,10 +63,7 @@ class UserinfoService extends Service {
             const data = await this.ctx.model.Student.findOne({ studentId: username });
             // console.log(data.data instanceof Object);
             const isEmpty = Object.keys(data.data).length
-            console.log(isEmpty===0);
-
-
-            return { code: 200, data };
+            return { code: 200, data, isEmpty };
         } else if (role === 'teacher') {
             const data = await this.ctx.model.Teacher.findOne({ teacherId: username });
             return { code: 200, data };
