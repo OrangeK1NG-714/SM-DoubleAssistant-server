@@ -36,6 +36,17 @@ class StdinfoService extends Service {
             return { code: 200, msg: '学生信息已更新', data: student };
         }
     }
+    //新增学生选老师选项
+    async selectTeacher(studentId, teacherId, order,isChose) {
+        // 直接向Choose表写入数据
+        const choose = await this.ctx.model.Choose.create({
+            studentId: studentId,
+            teacherId: teacherId,
+            order: order,
+            isChose: isChose
+        });
+        return { code: 200, msg: '学生选老师选项已添加', data: choose };
+    }
 }
 
 module.exports = StdinfoService;
