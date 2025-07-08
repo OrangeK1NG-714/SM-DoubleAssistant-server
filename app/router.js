@@ -11,25 +11,39 @@ module.exports = app => {
   router.get('/api/user/detail', controller.userinfo.getUserDetail);
 
   //写入学生信息
-  router.post('/api/user/writeMsg',controller.stdinfo.writeUserMsg)
+  router.post('/api/user/writeMsg', controller.stdinfo.writeUserMsg)
   //更新学生信息
-  router.put('/api/user/updateMsg',controller.stdinfo.updateUserMsg)
-  
+  router.put('/api/user/updateMsg', controller.stdinfo.updateUserMsg)
+
   //获取老师信息
-  router.get('/api/teacher/detail',controller.teainfo.getTeaDetail)
+  router.get('/api/teacher/detail', controller.teainfo.getTeaDetail)
   //新增学生选老师选项
-  router.post('/api/student/selectTeacher',controller.stdinfo.selectTeacher)
+  router.post('/api/student/selectTeacher', controller.stdinfo.selectTeacher)
   //老师选学生-即（修改学生选老师选项）
-  router.put('/api/student/updateTeacher',controller.teainfo.updateChoose)
+  router.put('/api/student/updateTeacher', controller.teainfo.updateChoose)
 
   //admin新增活动
-  router.post('/api/admin/addActivity',controller.admin.addActivity)
+  router.post('/api/admin/addActivity', controller.admin.addActivity)
   //admin获取活动列表
-  router.get('/api/admin/getActivityList',controller.admin.getActivityList)
+  router.get('/api/admin/getActivityList', controller.admin.getActivityList)
   // //admin获取活动详情
   // router.get('/api/admin/getActivityDetail',controller.admin.getActivityDetail)
-  // //admin修改活动
-  // router.put('/api/admin/updateActivity',controller.admin.updateActivity)
-  // //admin删除活动
-  // router.delete('/api/admin/deleteActivity',controller.admin.deleteActivity)
+  //admin修改活动
+  router.put('/api/admin/updateActivity', controller.admin.updateActivity)
+  //admin删除活动
+  router.delete('/api/admin/deleteActivity', controller.admin.deleteActivity)
+
+  //根据活动id去查询所有学生的选择情况
+  router.get('/api/user/getChooseList', controller.userinfo.getChooseList)
+
+  //把对应的老师添加到活动中去
+  router.post('/api/admin/addTeacherToActivity', controller.admin.addTeacherToActivity)
+  //把对应的学生添加到活动中去
+  // router.post('/api/admin/addStudentToActivity', controller.admin.addStudentToActivity)
+
+  //查询某活动的所有老师
+  router.get('/api/student/getTeacherList', controller.stdinfo.getTeacherListInActivity)
+
+  //查询已选学生数(通过老师id)
+  router.get('/api/user/getChooseCount', controller.userinfo.getChooseCount)
 };

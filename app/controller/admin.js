@@ -14,6 +14,26 @@ class AdminController extends Controller {
         const res = await service.admin.getActivityList();
         ctx.body = res
     }
+    async deleteActivity() {
+        const { ctx, service } = this;
+        const { id } = ctx.request.body;
+        const res = await service.admin.deleteActivity(id); 
+        ctx.send([], res.code, res.msg)
+    }
+    async updateActivity() {
+        const { ctx, service } = this;
+        const { id, name, description, startDate, endDate } = ctx.request.body;
+        const res = await service.admin.updateActivity(id, name, description, startDate, endDate); 
+        ctx.send([], res.code, res.msg)
+    }
+    async addTeacherToActivity() {
+        const { ctx, service } = this;
+        const { activityId, teacherId } = ctx.request.body;
+        console.log(activityId,teacherId);
+        
+        const res = await service.admin.addTeacherToActivity(activityId, teacherId);
+        ctx.send([], res.code, res.msg)
+    }
 }
 
 module.exports = AdminController;

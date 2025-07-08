@@ -37,15 +37,24 @@ class StdinfoService extends Service {
         }
     }
     //新增学生选老师选项
-    async selectTeacher(studentId, teacherId, order,isChose) {
+    async selectTeacher(studentId, teacherId, order, isChose, activityId) {
+
         // 直接向Choose表写入数据
         const choose = await this.ctx.model.Choose.create({
             studentId: studentId,
             teacherId: teacherId,
             order: order,
-            isChose: isChose
+            isChose: isChose,
+            activityId: activityId
         });
         return { code: 200, msg: '学生选老师选项已添加', data: choose };
+    }
+
+    //查询某活动的所有老师
+    async getTeacherListInActivity(activityId) {
+        const { ctx } = this;
+        const res = await ctx.model.UserInActivity.find({ activityId: activityId });
+        return res;
     }
 }
 

@@ -25,9 +25,16 @@ class StdinfoController extends Controller {
     //新增学生选老师选项
     async selectTeacher() {
         const { ctx, service } = this
-        const { studentId, teacherId, order,isChose } = ctx.request.body
-        const res = await service.stdinfo.selectTeacher(studentId, teacherId, order,isChose)
+        const { studentId, teacherId, order, isChose, activityId } = ctx.request.body
+        const res = await service.stdinfo.selectTeacher(studentId, teacherId, order, isChose, activityId)
         ctx.send([], res.code, res.msg)
+    }
+    //查询某活动的所有老师
+    async getTeacherListInActivity() {
+        const { ctx, service } = this
+        const { activityId } = ctx.request.query
+        const res = await service.stdinfo.getTeacherListInActivity(activityId)
+        ctx.body = res
     }
 }
 

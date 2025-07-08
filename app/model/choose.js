@@ -7,7 +7,8 @@ module.exports = app => {
         studentId: { type: String, required: true },
         teacherId: { type: String, required: true },
         order: { type: Number, required: true },
-        isChose: { type: Boolean, required: true }
+        isChose: { type: Boolean, required: true },
+        activityId: { type: String, required: true }
     }, { versionKey: false });
     return mongoose.model('Choose', ChooseSchema);
 };

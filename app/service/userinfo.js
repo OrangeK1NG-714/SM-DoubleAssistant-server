@@ -71,6 +71,20 @@ class UserinfoService extends Service {
             return { code: 200, msg: '管理员您好！' };
         }
     }
+    //根据活动id去查询所有学生的选择情况
+    async getChooseList(activityId) {
+        const { ctx } = this;
+        const db = ctx.model.Choose;
+        const res = await db.find({ 'activityId': activityId })
+        return res;
+    }
+    //查询已选学生数(通过老师id)
+    async getChooseCount(teacherId) {
+        const { ctx } = this;
+        const db = ctx.model.Choose;
+        const res = await db.find({ 'teacherId': teacherId })
+        return res;
+    }
 }
 
 module.exports = UserinfoService;
