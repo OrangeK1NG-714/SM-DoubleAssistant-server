@@ -5,8 +5,14 @@ const Controller = require('egg').Controller;
 class AdminController extends Controller {
     async addActivity() {
         const { ctx, service } = this;
-        const { name, description, startDate, endDate } = ctx.request.body;
-        const res = await service.admin.addActivity(name, description, startDate, endDate);
+        const { name, description, startDate, endDate, firstChooseStartDate, firstChooseEndDate,
+            secondChooseStartDate, secondChooseEndDate, thirdChooseStartDate, thirdChooseEndDate,
+            stdChooseStartDate, stdChooseEndDate, firstChooseNum, secondChooseNum, thirdChooseNum,
+            stdChooseNum } = ctx.request.body;
+        const res = await service.admin.addActivity(name, description, startDate, endDate, firstChooseStartDate, firstChooseEndDate,
+            secondChooseStartDate, secondChooseEndDate, thirdChooseStartDate, thirdChooseEndDate,
+            stdChooseStartDate, stdChooseEndDate, firstChooseNum, secondChooseNum, thirdChooseNum,
+            stdChooseNum);
         ctx.send([], res.code, res.msg);
     }
     async getActivityList() {
@@ -17,20 +23,26 @@ class AdminController extends Controller {
     async deleteActivity() {
         const { ctx, service } = this;
         const { id } = ctx.request.body;
-        const res = await service.admin.deleteActivity(id); 
+        const res = await service.admin.deleteActivity(id);
         ctx.send([], res.code, res.msg)
     }
     async updateActivity() {
         const { ctx, service } = this;
-        const { id, name, description, startDate, endDate } = ctx.request.body;
-        const res = await service.admin.updateActivity(id, name, description, startDate, endDate); 
+        const { id, name, description, startDate, endDate, firstChooseStartDate, firstChooseEndDate,
+            secondChooseStartDate, secondChooseEndDate, thirdChooseStartDate, thirdChooseEndDate,
+            stdChooseStartDate, stdChooseEndDate, firstChooseNum, secondChooseNum, thirdChooseNum,
+            stdChooseNum } = ctx.request.body;
+        const res = await service.admin.updateActivity(id, name, description, startDate, endDate, firstChooseStartDate, firstChooseEndDate,
+            secondChooseStartDate, secondChooseEndDate, thirdChooseStartDate, thirdChooseEndDate,
+            stdChooseStartDate, stdChooseEndDate, firstChooseNum, secondChooseNum, thirdChooseNum,
+            stdChooseNum);
         ctx.send([], res.code, res.msg)
     }
     async addTeacherToActivity() {
         const { ctx, service } = this;
         const { activityId, teacherId } = ctx.request.body;
-        console.log(activityId,teacherId);
-        
+        console.log(activityId, teacherId);
+
         const res = await service.admin.addTeacherToActivity(activityId, teacherId);
         ctx.send([], res.code, res.msg)
     }

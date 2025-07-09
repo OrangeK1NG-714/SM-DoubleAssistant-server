@@ -3,9 +3,9 @@
 const Service = require('egg').Service;
 
 class AdminService extends Service {
-    async addActivity(name, description, startDate, endDate) {
+    async addActivity(name, description, startDate, endDate, firstChooseStartDate, firstChooseEndDate, secondChooseStartDate, secondChooseEndDate, thirdChooseStartDate, thirdChooseEndDate, stdChooseStartDate, stdChooseEndDate, firstChooseCount, secondChooseCount, thirdChooseCount, stdChooseCount) {
         const { ctx } = this;
-        const res = await ctx.model.Activity.create({ name, description, startDate, endDate });
+        const res = await ctx.model.Activity.create({ name, description, startDate, endDate, firstChooseStartDate, firstChooseEndDate, secondChooseStartDate, secondChooseEndDate, thirdChooseStartDate, thirdChooseEndDate, stdChooseStartDate, stdChooseEndDate, firstChooseCount, secondChooseCount, thirdChooseCount, stdChooseCount });
         return res;
     }
     async getActivityList() {
@@ -13,9 +13,9 @@ class AdminService extends Service {
         const res = await ctx.model.Activity.find();
         return res;
     }
-    async updateActivity(id, name, description, startDate, endDate) {
-        const { ctx } = this;
-        const res = await ctx.model.Activity.findByIdAndUpdate(id, { name, description, startDate, endDate });
+    async updateActivity(id, name, description, startDate, endDate, firstChooseStartDate, firstChooseEndDate, secondChooseStartDate, secondChooseEndDate, thirdChooseStartDate, thirdChooseEndDate, stdChooseStartDate, stdChooseEndDate, firstChooseCount, secondChooseCount, thirdChooseCount, stdChooseCount) {
+        const { ctx } = this;        
+        const res = await ctx.model.Activity.findByIdAndUpdate(id, { name, description, startDate, endDate, firstChooseStartDate, firstChooseEndDate, secondChooseStartDate, secondChooseEndDate, thirdChooseStartDate, thirdChooseEndDate, stdChooseStartDate, stdChooseEndDate, firstChooseCount, secondChooseCount, thirdChooseCount, stdChooseCount });
         return res;
     }
     async deleteActivity(id) {

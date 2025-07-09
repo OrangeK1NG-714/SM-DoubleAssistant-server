@@ -78,7 +78,7 @@ class UserinfoService extends Service {
         const res = await db.find({ 'activityId': activityId })
         return res;
     }
-    //查询已选学生数(通过老师id)
+    //查询已选学生(通过老师id)
     async getChooseCount(teacherId) {
         const { ctx } = this;
         const db = ctx.model.Choose;
