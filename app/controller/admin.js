@@ -20,6 +20,13 @@ class AdminController extends Controller {
         const res = await service.admin.getActivityList();
         ctx.body = res
     }
+    //获取某一活动详情
+    async getActivityDetail() {
+        const { ctx, service } = this;
+        const { id } = ctx.request.query
+        const res = await service.admin.getActivityDetail(id);
+        ctx.body = res
+    }
     async deleteActivity() {
         const { ctx, service } = this;
         const { id } = ctx.request.body;

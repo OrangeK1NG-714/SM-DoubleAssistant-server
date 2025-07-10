@@ -52,15 +52,15 @@ class UserinfoController extends Controller {
         const res = await service.userinfo.getChooseList(activityId);
         ctx.body = res;
     }
-    //查询已选学生数(通过老师id)
+    //查询已选学生数(通过老师id+活动id)
     async getChooseCount() {
         const { ctx, service } = this;
-        const { teacherId } = ctx.query;
-        if (!teacherId) {
+        const { teacherId,activityId } = ctx.query;
+        if (!teacherId || !activityId) {
             ctx.body = { code: 400, msg: '缺少参数' };
             return;
         }
-        const res = await service.userinfo.getChooseCount(teacherId);
+        const res = await service.userinfo.getChooseCount(teacherId,activityId);
         ctx.body = res;
     }
     

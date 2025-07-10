@@ -37,15 +37,35 @@ class StdinfoService extends Service {
         }
     }
     //新增学生选老师选项
-    async selectTeacher(studentId, teacherId, order, isChose, activityId) {
-
+    async selectTeacher(studentId, teacherId, order, isChose, activityId,createTime) {
+        // 先查询活动时间
+        const activity = await this.ctx.model.Activity.findById(activityId);
+        // console.log(activity)
+        if (!activity) {
+            return { code: 404, msg: '活动不存在' };
+        }
+        // 检查当前时间是否在选老师时间内
+        const now = new Date(createTime);
+        // console.log(now)
+        if (now < Date(activity.stdChooseEndDate) && now > Date(activity.stdChooseStartDate)) {
+            return { code: 400, msg: '不在选老师时间内' };
+        }
+        //检查是否提交过该活动
+        const isSubmitted = await this.ctx.model.Choose.findOne({
+            studentId: studentId,
+            activityId: activityId,
+        });
+        if (isSubmitted) {
+            return { code: 400, msg: '已提交过该活动' };
+        }
         // 直接向Choose表写入数据
         const choose = await this.ctx.model.Choose.create({
             studentId: studentId,
             teacherId: teacherId,
             order: order,
             isChose: isChose,
-            activityId: activityId
+            activityId: activityId,
+            createTime:new Date(createTime)
         });
         return { code: 200, msg: '学生选老师选项已添加', data: choose };
     }

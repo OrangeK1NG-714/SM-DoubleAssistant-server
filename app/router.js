@@ -26,8 +26,8 @@ module.exports = app => {
   router.post('/api/admin/addActivity', controller.admin.addActivity)
   //admin获取活动列表
   router.get('/api/admin/getActivityList', controller.admin.getActivityList)
-  // //admin获取活动详情
-  // router.get('/api/admin/getActivityDetail',controller.admin.getActivityDetail)
+  //admin获取某一活动详情
+  router.get('/api/admin/getActivityDetail',controller.admin.getActivityDetail)
   //admin修改活动
   router.put('/api/admin/updateActivity', controller.admin.updateActivity)
   //admin删除活动

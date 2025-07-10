@@ -13,6 +13,13 @@ class AdminService extends Service {
         const res = await ctx.model.Activity.find();
         return res;
     }
+    //获取某一活动详情
+    async getActivityDetail(id) {
+        const { ctx } = this;
+        const res = await ctx.model.Activity.findById(id);
+        return res;
+    }
+    
     async updateActivity(id, name, description, startDate, endDate, firstChooseStartDate, firstChooseEndDate, secondChooseStartDate, secondChooseEndDate, thirdChooseStartDate, thirdChooseEndDate, stdChooseStartDate, stdChooseEndDate, firstChooseCount, secondChooseCount, thirdChooseCount, stdChooseCount) {
         const { ctx } = this;        
         const res = await ctx.model.Activity.findByIdAndUpdate(id, { name, description, startDate, endDate, firstChooseStartDate, firstChooseEndDate, secondChooseStartDate, secondChooseEndDate, thirdChooseStartDate, thirdChooseEndDate, stdChooseStartDate, stdChooseEndDate, firstChooseCount, secondChooseCount, thirdChooseCount, stdChooseCount });
