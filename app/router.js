@@ -35,7 +35,13 @@ module.exports = app => {
 
   //根据活动id去查询所有学生的选择情况
   router.get('/api/user/getChooseList', controller.userinfo.getChooseList)
+  //查询一个学生的选择情况(根据活动id+学生id)
+  router.get('/api/user/getChooseDetail', controller.userinfo.getChooseDetail)
+ //查询已选学生数(通过老师id+活动id)
+  router.get('/api/user/getChooseCount', controller.userinfo.getChooseCount)
 
+
+  
   //把对应的老师添加到活动中去
   router.post('/api/admin/addTeacherToActivity', controller.admin.addTeacherToActivity)
   //把对应的学生添加到活动中去
@@ -44,6 +50,4 @@ module.exports = app => {
   //查询某活动的所有老师
   router.get('/api/student/getTeacherList', controller.stdinfo.getTeacherListInActivity)
 
-  //查询已选学生数(通过老师id)
-  router.get('/api/user/getChooseCount', controller.userinfo.getChooseCount)
 };

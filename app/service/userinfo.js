@@ -84,7 +84,15 @@ class UserinfoService extends Service {
         const db = ctx.model.Choose;
         const res = await db.find({ 'teacherId': teacherId, 'activityId': activityId })
         return res;
+    }  
+    //查询一个学生的选择情况(根据活动id+学生id)
+    async getChooseDetail(activityId,studentId) {
+        const { ctx } = this;
+        const db = ctx.model.Choose;
+        const res = await db.find({ 'activityId': activityId,'studentId':studentId })
+        return res;
     }
+
 }
 
 module.exports = UserinfoService;

@@ -45,18 +45,12 @@ class StdinfoService extends Service {
             return { code: 404, msg: '活动不存在' };
         }
         // 检查当前时间是否在选老师时间内
-        const now = new Date(createTime);
-        // console.log(now)
+        const now =new Date(createTime);
+        //将时间转化为新加坡时间
+        const adjustedTime = new Date(createTime)
+        adjustedTime.setHours(adjustedTime.getHours() + 8)
         if (now < Date(activity.stdChooseEndDate) && now > Date(activity.stdChooseStartDate)) {
             return { code: 400, msg: '不在选老师时间内' };
-        }
-        //检查是否提交过该活动
-        const isSubmitted = await this.ctx.model.Choose.findOne({
-            studentId: studentId,
-            activityId: activityId,
-        });
-        if (isSubmitted) {
-            return { code: 400, msg: '已提交过该活动' };
         }
         // 直接向Choose表写入数据
         const choose = await this.ctx.model.Choose.create({
@@ -65,7 +59,7 @@ class StdinfoService extends Service {
             order: order,
             isChose: isChose,
             activityId: activityId,
-            createTime:new Date(createTime)
+            createTime: adjustedTime
         });
         return { code: 200, msg: '学生选老师选项已添加', data: choose };
     }

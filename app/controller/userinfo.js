@@ -63,7 +63,17 @@ class UserinfoController extends Controller {
         const res = await service.userinfo.getChooseCount(teacherId,activityId);
         ctx.body = res;
     }
-    
+    //查询一个学生的选择情况(根据活动id+学生id)
+    async getChooseDetail() {
+        const { ctx, service } = this;
+        const { activityId,studentId } = ctx.query;
+        if (!activityId || !studentId) {
+            ctx.body = { code: 400, msg: '缺少参数' };
+            return;
+        }
+        const res = await service.userinfo.getChooseDetail(activityId,studentId);
+        ctx.body = res;
+    }
 }
 
 module.exports = UserinfoController;
