@@ -8,10 +8,10 @@ class StdinfoController extends Controller {
         const { ctx, service } = this
         // console.log(ctx, service );
 
-        const { name, gender, studentId } = ctx.request.body
+        const { name, gender, studentId,grade,classNum,phone,gpa,direction } = ctx.request.body
         // console.log(name, gender, studentId);
 
-        const res = await service.stdinfo.writeUserMsg(name, gender, studentId)
+        const res = await service.stdinfo.writeUserMsg(name, gender, studentId,grade,classNum,phone,gpa,direction)
         console.log(res);
         ctx.send([], res.code, res.msg)
     }
@@ -36,6 +36,16 @@ class StdinfoController extends Controller {
         const res = await service.stdinfo.getTeacherListInActivity(activityId)
         ctx.body = res
     }
+
+    //查询学生信息
+    async getStudentMsg() {
+        const { ctx, service } = this
+        const { studentId } = ctx.request.query
+        const res = await service.stdinfo.getStudentMsg(studentId)
+        console.log(res);
+        ctx.body = res
+    }
+
 }
 
 module.exports = StdinfoController;

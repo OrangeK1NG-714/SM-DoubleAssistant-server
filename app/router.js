@@ -14,13 +14,23 @@ module.exports = app => {
   router.post('/api/user/writeMsg', controller.stdinfo.writeUserMsg)
   //更新学生信息
   router.put('/api/user/updateMsg', controller.stdinfo.updateUserMsg)
+  //查询学生信息
+  router.get('/api/student/getMsg', controller.stdinfo.getStudentMsg)
 
   //获取老师信息
   router.get('/api/teacher/detail', controller.teainfo.getTeaDetail)
   //新增学生选老师选项
   router.post('/api/student/selectTeacher', controller.stdinfo.selectTeacher)
+
+
   //老师选学生-即（修改学生选老师选项）
   router.put('/api/student/updateTeacher', controller.teainfo.updateChoose)
+  //老师选学生（新增到老师选学生表）
+router.post('/api/teacher/selectStudent', controller.teainfo.selectStudent)
+//老师取消选择学生
+router.delete('/api/teacher/cancelSelect', controller.teainfo.cancelSelect)
+//查看final表中某位老师选择的学生情况
+router.get('/api/teacher/getSelectList', controller.teainfo.getSelectList)
 
   //admin新增活动
   router.post('/api/admin/addActivity', controller.admin.addActivity)
