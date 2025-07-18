@@ -3,6 +3,10 @@
  */
 module.exports = app => {
   const { router, controller } = app;
+
+ // SSE路由
+ router.get('/resource/sse', controller.sse.index); // 确保路径匹配
+
   //注册用户
   router.post('/api/admin/register', app.middleware.jwt(), controller.userinfo.userRegister)
   //登录用户
@@ -60,4 +64,10 @@ router.get('/api/teacher/getSelectList', controller.teainfo.getSelectList)
   //查询某活动的所有老师
   router.get('/api/student/getTeacherList', controller.stdinfo.getTeacherListInActivity)
 
+
+
+
+  //以下是管理端代码
+  //查询所有用户
+  router.get('/api/admin/getUserList', controller.admin.getUserList)
 };

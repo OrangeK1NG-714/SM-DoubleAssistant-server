@@ -22,8 +22,8 @@ class TeainfoController extends Controller {
     //老师选学生（新增到老师选学生表）
     async selectStudent() {
         const { ctx, service } = this
-        const { studentId, teacherId,activityId } = ctx.request.body
-        const res = await service.teainfo.selectStudent(studentId, teacherId,activityId)
+        const { studentId, teacherId,activityId,data,order } = ctx.request.body
+        const res = await service.teainfo.selectStudent(studentId, teacherId,activityId,data,order)
 
         ctx.send([], res.code, res.msg)
     }

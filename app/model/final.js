@@ -7,6 +7,8 @@ module.exports = app => {
         activityId: { type: String, required: true },
         studentId: { type: String, required: true },
         teacherId: { type: String, required: true },
+        data: { type: Object, required: true },
+        order: { type: Number, required: true },
     }, { versionKey: false });
     return mongoose.model('Final', FinalSchema);
 };

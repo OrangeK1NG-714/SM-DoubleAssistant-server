@@ -7,17 +7,21 @@ module.exports = (options = { requiredRole: null }) => { // 支持传入需要�
     if (!authHeader) {
       return ctx.send([], 401, '未提供 Token');
     }
+console.log(authHeader);
 
     // 提取 Bearer Token
     const token = authHeader.split(' ')[1]; // 格式: "Bearer <token>"
     if (!token) {
       return ctx.send([], 401, 'Token 格式错误');
     }
-
+    console.log(token);
+    
     // 2. 验证 Token
     let decoded;
     try {
       decoded = jwt.verify(token, ctx.app.config.jwt.secret);
+      console.log(decoded);
+
     } catch (error) {
       if (error.name === 'TokenExpiredError') {
         return ctx.send([], 401, 'Token 已过期');

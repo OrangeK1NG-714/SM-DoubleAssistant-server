@@ -3,6 +3,22 @@
 const Controller = require('egg').Controller;
 
 class AdminController extends Controller {
+    async getUserList() {
+        const { ctx, service } = this;
+        const res = await service.admin.getUserList();
+        console.log(res);
+        
+        ctx.body = res
+    }
+
+
+
+
+
+
+
+
+
     async addActivity() {
         const { ctx, service } = this;
         const { name, description, startDate, endDate, firstChooseStartDate, firstChooseEndDate,

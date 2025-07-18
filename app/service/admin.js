@@ -19,9 +19,9 @@ class AdminService extends Service {
         const res = await ctx.model.Activity.findById(id);
         return res;
     }
-    
+
     async updateActivity(id, name, description, startDate, endDate, firstChooseStartDate, firstChooseEndDate, secondChooseStartDate, secondChooseEndDate, thirdChooseStartDate, thirdChooseEndDate, stdChooseStartDate, stdChooseEndDate, firstChooseCount, secondChooseCount, thirdChooseCount, stdChooseCount) {
-        const { ctx } = this;        
+        const { ctx } = this;
         const res = await ctx.model.Activity.findByIdAndUpdate(id, { name, description, startDate, endDate, firstChooseStartDate, firstChooseEndDate, secondChooseStartDate, secondChooseEndDate, thirdChooseStartDate, thirdChooseEndDate, stdChooseStartDate, stdChooseEndDate, firstChooseCount, secondChooseCount, thirdChooseCount, stdChooseCount });
         return res;
     }
@@ -45,6 +45,15 @@ class AdminService extends Service {
         const res = await ctx.model.UserInActivity.create({ activityId: activityId, teacherId: teacherId });
         return res;
     }
+
+    async getUserList() {
+        const { ctx } = this;
+        const res = await ctx.model.Userinfo.find();
+        console.log(res);
+
+        return res;
+    }
+
 }
 
 module.exports = AdminService;

@@ -17,15 +17,13 @@ class TeainfoService extends Service {
         }
     }
     //老师选学生（新增到老师选学生表）
-    async selectStudent(studentId, teacherId,activityId) {
-        const choose = await this.ctx.model.Final.create({ studentId, teacherId,activityId})
+    async selectStudent(studentId, teacherId,activityId,data,order) {
+        const choose = await this.ctx.model.Final.create({ studentId, teacherId,activityId,data,order})
         return { code: 200, msg: '老师已选学生', data: choose }
     }
     //老师取消选择学生
     async cancelSelect(studentId, teacherId,activityId) {
-        const res = await this.ctx.model.Final.deleteOne({ studentId, teacherId,activityId})
-        console.log(res);
-        
+        const res = await this.ctx.model.Final.deleteOne({ studentId, teacherId,activityId})        
         return { code: 200, msg: '老师取消选择学生', data: res }
     }
     //查看final表中某位老师选择的学生情况

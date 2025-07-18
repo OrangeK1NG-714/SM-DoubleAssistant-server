@@ -28,6 +28,8 @@ class UserinfoController extends Controller {
         }, ctx.request.body)
         const { data, msg, code } = await service.userinfo.userLogin(username, password)
         console.log(data, code, msg);
+        // 设置Authorization头
+        ctx.set('Authorization', `Bearer ${data.token}`);
         ctx.send(data, code, msg)
     }
     // 获取用户详细信息
@@ -55,23 +57,23 @@ class UserinfoController extends Controller {
     //查询已选学生数(通过老师id+活动id)
     async getChooseCount() {
         const { ctx, service } = this;
-        const { teacherId,activityId } = ctx.query;
+        const { teacherId, activityId } = ctx.query;
         if (!teacherId || !activityId) {
             ctx.body = { code: 400, msg: '缺少参数' };
             return;
         }
-        const res = await service.userinfo.getChooseCount(teacherId,activityId);
+        const res = await service.userinfo.getChooseCount(teacherId, activityId);
         ctx.body = res;
     }
     //查询一个学生的选择情况(根据活动id+学生id)
     async getChooseDetail() {
         const { ctx, service } = this;
-        const { activityId,studentId } = ctx.query;
+        const { activityId, studentId } = ctx.query;
         if (!activityId || !studentId) {
             ctx.body = { code: 400, msg: '缺少参数' };
             return;
         }
-        const res = await service.userinfo.getChooseDetail(activityId,studentId);
+        const res = await service.userinfo.getChooseDetail(activityId, studentId);
         ctx.body = res;
     }
 }
