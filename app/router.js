@@ -4,8 +4,8 @@
 module.exports = app => {
   const { router, controller } = app;
 
- // SSE路由
- router.get('/resource/sse', controller.sse.index); // 确保路径匹配
+  // SSE路由
+  router.get('/resource/sse', controller.sse.index); // 确保路径匹配
 
   //注册用户
   router.post('/api/admin/register', app.middleware.jwt(), controller.userinfo.userRegister)
@@ -30,18 +30,18 @@ module.exports = app => {
   //老师选学生-即（修改学生选老师选项）
   router.put('/api/student/updateTeacher', controller.teainfo.updateChoose)
   //老师选学生（新增到老师选学生表）
-router.post('/api/teacher/selectStudent', controller.teainfo.selectStudent)
-//老师取消选择学生
-router.delete('/api/teacher/cancelSelect', controller.teainfo.cancelSelect)
-//查看final表中某位老师选择的学生情况
-router.get('/api/teacher/getSelectList', controller.teainfo.getSelectList)
+  router.post('/api/teacher/selectStudent', controller.teainfo.selectStudent)
+  //老师取消选择学生
+  router.delete('/api/teacher/cancelSelect', controller.teainfo.cancelSelect)
+  //查看final表中某位老师选择的学生情况
+  router.get('/api/teacher/getSelectList', controller.teainfo.getSelectList)
 
   //admin新增活动
   router.post('/api/admin/addActivity', controller.admin.addActivity)
   //admin获取活动列表
   router.get('/api/admin/getActivityList', controller.admin.getActivityList)
   //admin获取某一活动详情
-  router.get('/api/admin/getActivityDetail',controller.admin.getActivityDetail)
+  router.get('/api/admin/getActivityDetail', controller.admin.getActivityDetail)
   //admin修改活动
   router.put('/api/admin/updateActivity', controller.admin.updateActivity)
   //admin删除活动
@@ -51,11 +51,11 @@ router.get('/api/teacher/getSelectList', controller.teainfo.getSelectList)
   router.get('/api/user/getChooseList', controller.userinfo.getChooseList)
   //查询一个学生的选择情况(根据活动id+学生id)
   router.get('/api/user/getChooseDetail', controller.userinfo.getChooseDetail)
- //查询已选学生数(通过老师id+活动id)
+  //查询已选学生数(通过老师id+活动id)
   router.get('/api/user/getChooseCount', controller.userinfo.getChooseCount)
 
 
-  
+
   //把对应的老师添加到活动中去
   router.post('/api/admin/addTeacherToActivity', controller.admin.addTeacherToActivity)
   //把对应的学生添加到活动中去
@@ -70,4 +70,15 @@ router.get('/api/teacher/getSelectList', controller.teainfo.getSelectList)
   //以下是管理端代码
   //查询所有用户
   router.get('/api/admin/getUserList', controller.admin.getUserList)
+  // //删除某个用户
+  // router.delete('/api/admin/deleteUser', controller.admin.deleteUser)
+
+  //查询所有活动（已有）
+  // router.get('/api/admin/getActivityList', controller.admin.getActivityList)
+  //查询单个用户信息
+  router.get('/api/admin/getUserInfo', controller.admin.getUserInfo)
+  //重置某个用户密码
+  router.post('/api/admin/resetPassword', controller.admin.resetPassword)
+  //重置所有选中用户密码
+  router.post('/api/admin/resetSelectedPassword', controller.admin.resetSelectedPassword)
 };

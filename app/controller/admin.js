@@ -12,13 +12,7 @@ class AdminController extends Controller {
     }
 
 
-
-
-
-
-
-
-
+    
     async addActivity() {
         const { ctx, service } = this;
         const { name, description, startDate, endDate, firstChooseStartDate, firstChooseEndDate,
@@ -51,11 +45,11 @@ class AdminController extends Controller {
     }
     async updateActivity() {
         const { ctx, service } = this;
-        const { id, name, description, startDate, endDate, firstChooseStartDate, firstChooseEndDate,
+        const { _id, name, description, startDate, endDate, firstChooseStartDate, firstChooseEndDate,
             secondChooseStartDate, secondChooseEndDate, thirdChooseStartDate, thirdChooseEndDate,
             stdChooseStartDate, stdChooseEndDate, firstChooseNum, secondChooseNum, thirdChooseNum,
             stdChooseNum } = ctx.request.body;
-        const res = await service.admin.updateActivity(id, name, description, startDate, endDate, firstChooseStartDate, firstChooseEndDate,
+        const res = await service.admin.updateActivity(_id, name, description, startDate, endDate, firstChooseStartDate, firstChooseEndDate,
             secondChooseStartDate, secondChooseEndDate, thirdChooseStartDate, thirdChooseEndDate,
             stdChooseStartDate, stdChooseEndDate, firstChooseNum, secondChooseNum, thirdChooseNum,
             stdChooseNum);
@@ -68,6 +62,28 @@ class AdminController extends Controller {
 
         const res = await service.admin.addTeacherToActivity(activityId, teacherId);
         ctx.send([], res.code, res.msg)
+    }
+
+    //查询用户信息
+    async getUserInfo() {
+        const { ctx, service } = this;
+        const {username,role} =ctx.query
+        const res = await service.admin.getUserInfo(username,role);
+        ctx.body = res;
+    }
+    //重置密码
+    async resetPassword() {
+        const { ctx, service } = this;
+        const { username, password } = ctx.request.body;
+        const res = await service.admin.resetPassword(username, password);
+        ctx.send([], res.code, res.msg);
+    }
+    //重置所有选中用户密码
+    async resetSelectedPassword() {
+        const { ctx, service } = this;
+        const { selectedUsers, password } = ctx.request.body;
+        const res = await service.admin.resetSelectedPassword(selectedUsers, password);
+        ctx.send([], res.code, res.msg);
     }
 }
 
