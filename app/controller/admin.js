@@ -57,10 +57,11 @@ class AdminController extends Controller {
     }
     async addTeacherToActivity() {
         const { ctx, service } = this;
-        const { activityId, teacherId } = ctx.request.body;
-        console.log(activityId, teacherId);
+        const { activityId, teacherId,studentId } = ctx.request.body;
+        console.log(activityId, teacherId ,studentId);
 
-        const res = await service.admin.addTeacherToActivity(activityId, teacherId);
+
+        const res = await service.admin.addTeacherToActivity(activityId, teacherId,studentId);
         ctx.send([], res.code, res.msg)
     }
 
@@ -85,6 +86,21 @@ class AdminController extends Controller {
         const res = await service.admin.resetSelectedPassword(selectedUsers, password);
         ctx.send([], res.code, res.msg);
     }
+    //查询某活动的所有用户
+    async getUserListInActivity() {
+        const { ctx, service } = this;
+        const { activityId,username,role } = ctx.request.query;
+        const res = await service.admin.getUserListInActivity(activityId,username,role);
+        ctx.body = res
+    }
+    //删除某活动的某一用户
+    async deleteUserInActivity() {
+        const { ctx, service } = this;
+        const { _id } = ctx.request.body;
+        const res = await service.admin.deleteUserInActivity(_id);
+        ctx.send([], res.code, res.msg);
+    }
+
 }
 
 module.exports = AdminController;

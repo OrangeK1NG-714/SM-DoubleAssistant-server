@@ -47,19 +47,14 @@ class AdminService extends Service {
         const res = await ctx.model.Activity.findByIdAndDelete(id);
         return res;
     }
-    async addTeacherToActivity(activityId, teacherId) {
+    async addTeacherToActivity(activityId, teacherId = null, studentId = null) {
         const { ctx } = this;
-        // //先查询活动是否存在
-        // const activity = await ctx.model.Activity.findById(activityId);
-        // if (!activity) {
-        //     return { code: 400, msg: '活动不存在' };
-        // }
-        // //再查询老师是否存在
-        // const teacher = await ctx.model.Teacher.findById(teacherId);
-        // if (!teacher) {
-        //     return { code: 400, msg: '老师不存在' };
-        // }
-        const res = await ctx.model.UserInActivity.create({ activityId: activityId, teacherId: teacherId });
+
+        const data = { activityId };
+        if (teacherId) data.teacherId = teacherId;
+        if (studentId) data.studentId = studentId;
+
+        const res = await ctx.model.UserInActivity.create(data);
         return res;
     }
 
@@ -98,16 +93,90 @@ class AdminService extends Service {
         await res.save();
         return { code: 200, msg: '密码重置成功' };
     }
-   //重置选中用户密码
-   async resetSelectedPassword(selectedUsers, password) {
-    const { ctx } = this;
-    //创建哈希对象
-    const hash = crypto.createHash('sha256').update(password)
-    //生成哈希值
-    const passwordHash = hash.digest('hex')
-    const res = await ctx.model.Userinfo.updateMany({ username: { $in: selectedUsers } }, { password: passwordHash });
-    return res;
-   }
+    //重置选中用户密码
+    async resetSelectedPassword(selectedUsers, password) {
+        const { ctx } = this;
+        //创建哈希对象
+        const hash = crypto.createHash('sha256').update(password)
+        //生成哈希值
+        const passwordHash = hash.digest('hex')
+        const res = await ctx.model.Userinfo.updateMany({ username: { $in: selectedUsers } }, { password: passwordHash });
+        return res;
+    }
+
+
+
+
+    //查询某活动的所有用户
+    //查询某活动的所有用户
+    async getUserListInActivity(activityId, username, role) {
+        const { ctx } = this;
+        // 确保activityId是字符串
+        const activityIdStr = String(activityId);
+        // 基础查询条件
+        const query = {
+            activityId: activityIdStr
+        };
+
+        // 创建一个数组来存储所有的查询条件
+        const conditions = [];
+
+        // 处理role参数
+        if (role) {
+            console.log('处理role参数:', role);
+            if (role === 'teacher') {
+                conditions.push({ teacherId: { $exists: true } });
+            } else if (role === 'student') {
+                conditions.push({ studentId: { $exists: true } });
+            } else {
+                conditions.push({ role: role });
+            }
+        } else {
+            // 如果没有指定role，默认查询有teacherId或studentId的记录
+            conditions.push({
+                $or: [
+                    { teacherId: { $exists: true } },
+                    { studentId: { $exists: true } }
+                ]
+            });
+        }
+        // 处理username参数 - 在teacherId和studentId字段中都进行模糊查询
+        if (username) {
+            // 确保username是字符串
+            const usernameStr = String(username);
+            // 添加username模糊查询条件
+            conditions.push({
+                $or: [
+                    { teacherId: { $regex: usernameStr, $options: 'i' } },
+                    { studentId: { $regex: usernameStr, $options: 'i' } }
+                ]
+            });
+        }
+
+        // 如果有多个条件，使用$and操作符组合它们
+        if (conditions.length > 0) {
+            query.$and = conditions;
+        }
+
+        console.log('最终查询条件:', JSON.stringify(query));
+        try {
+            const res = await ctx.model.UserInActivity.find(query);
+            console.log('查询结果数量:', res.length);
+            console.log('查询结果:', res);
+            return res;
+        } catch (error) {
+            console.error('查询出错:', error);
+            return [];
+        }
+    }
+
+    //删除某活动的某一用户
+    async deleteUserInActivity(_id) {
+        const { ctx } = this;
+        const res = await ctx.model.UserInActivity.findByIdAndDelete(_id);
+        return res;
+    }
+
 }
 
 module.exports = AdminService;

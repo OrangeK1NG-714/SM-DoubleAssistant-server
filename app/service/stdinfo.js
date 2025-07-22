@@ -68,9 +68,16 @@ class StdinfoService extends Service {
     //查询某活动的所有老师
     async getTeacherListInActivity(activityId) {
         const { ctx } = this;
-        const res = await ctx.model.UserInActivity.find({ activityId: activityId });
+        const res = await ctx.model.UserInActivity.find({ activityId: activityId, teacherId: { $exists: true } });
         return res;
     }
+    //查询某学生是否在活动中
+    async isInActivity(studentId, activityId) {
+        const { ctx } = this;
+        const res = await ctx.model.UserInActivity.findOne({ studentId: studentId, activityId: activityId });
+        return res;
+    }
+
     //查询学生信息
     async getStudentMsg(studentId) {
         const { ctx } = this;

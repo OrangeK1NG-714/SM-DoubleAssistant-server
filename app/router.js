@@ -63,7 +63,8 @@ module.exports = app => {
 
   //查询某活动的所有老师
   router.get('/api/student/getTeacherList', controller.stdinfo.getTeacherListInActivity)
-
+  //查询某学生是否在活动中
+  router.get('/api/student/isInActivity', controller.stdinfo.isInActivity)
 
 
 
@@ -81,4 +82,8 @@ module.exports = app => {
   router.post('/api/admin/resetPassword', controller.admin.resetPassword)
   //重置所有选中用户密码
   router.post('/api/admin/resetSelectedPassword', controller.admin.resetSelectedPassword)
+  //查询某活动的所有用户
+  router.get('/api/admin/getUserListInActivity', controller.admin.getUserListInActivity)
+  //删除某活动的某一用户
+  router.delete('/api/admin/deleteUserInActivity', controller.admin.deleteUserInActivity)
 };
