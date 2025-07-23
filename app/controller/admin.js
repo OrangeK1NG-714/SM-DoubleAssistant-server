@@ -100,7 +100,41 @@ class AdminController extends Controller {
         const res = await service.admin.deleteUserInActivity(_id);
         ctx.send([], res.code, res.msg);
     }
-
+    //查询选择志愿列表
+    async getSelectedList() {
+        const { ctx, service } = this;
+        const {studentId,activityId} = ctx.request.query;
+        const res = await service.admin.getSelectedList(studentId,activityId);
+        ctx.body = res
+    }
+    //删除某项选择志愿
+    async deleteSelected() {
+        const { ctx, service } = this;
+        const { _id } = ctx.request.body;
+        const res = await service.admin.deleteSelected(_id);
+        ctx.send([], res.code, res.msg);
+    }
+    //查询最终志愿
+    async getFinalList() {
+        const { ctx, service } = this;
+        const {studentId,teacherId,activityId} = ctx.request.query;
+        const res = await service.admin.getFinalList(studentId,teacherId,activityId);
+        ctx.body = res
+    }
+    //查询某活动的所有导师
+    async getTeacherListInActivity() {
+        const { ctx, service } = this;
+        const { activityId } = ctx.request.query;
+        const res = await service.admin.getTeacherListInActivity(activityId);
+        ctx.body = res
+    }
+    //查询某活动的所有学生
+    async getStudentListInActivity() {
+        const { ctx, service } = this;
+        const { activityId } = ctx.request.query;
+        const res = await service.admin.getStudentListInActivity(activityId);
+        ctx.body = res
+    }
 }
 
 module.exports = AdminController;

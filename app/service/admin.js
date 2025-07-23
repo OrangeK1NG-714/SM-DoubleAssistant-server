@@ -176,6 +176,84 @@ class AdminService extends Service {
         const res = await ctx.model.UserInActivity.findByIdAndDelete(_id);
         return res;
     }
+    //查询选择志愿列表
+    async getSelectedList(studentId, activityId) {
+        const { ctx } = this;
+        const query = {};
+        if (studentId) {
+            // 使用正则表达式进行模糊查询，不区分大小写
+            query.studentId = { $regex: studentId, $options: 'i' };
+        }
+        if (activityId) {
+            query.activityId = activityId;
+        }
+        const res = await ctx.model.Choose.find(query);
+        return res;
+    }
+    //删除某项选择志愿
+    async deleteSelected(_id) {
+        const { ctx } = this;
+        const res = await ctx.model.Choose.findByIdAndDelete(_id);
+        return res;
+    }
+
+    //查询最终志愿
+    async getFinalList(studentId, teacherId, activityId) {
+        const { ctx } = this;
+        const query = {};
+        if (studentId) {
+            query.studentId = { $regex: studentId, $options: 'i' };
+        }
+        if (teacherId) {
+            query.teacherId = teacherId;
+        }
+        if (activityId) {
+            query.activityId = activityId;
+        }
+        const res = await ctx.model.Final.find(query);
+        return res;
+    }
+
+    //查询某活动的所有导师
+    async getTeacherListInActivity(activityId) {
+        const { ctx } = this;
+        const query = { teacherId: { $exists: true } };
+        if (activityId) {
+            query.activityId = activityId;
+        }
+        // 先查询 UserInActivity 表
+        const userInActivityList = await ctx.model.UserInActivity.find(query);
+        console.log('userInActivityList:', userInActivityList);
+        // 提取 teacherId
+        const teacherIds = userInActivityList.map(item => item.teacherId);
+        console.log('teacherIds:', teacherIds);
+        // 再查询 Teacher 表
+        const teachers = await ctx.model.Teacher.find({
+            teacherId: { $in: teacherIds }
+        });
+        return teachers;
+    }
+
+    //查询某活动的所有学生
+    async getStudentListInActivity(activityId) {
+        const { ctx } = this;
+        const query = { studentId: { $exists: true } };
+        if (activityId) {
+            query.activityId = activityId;
+        }
+        // 先查询 UserInActivity 表
+        const userInActivityList = await ctx.model.UserInActivity.find(query);
+        console.log('userInActivityList:', userInActivityList);
+        // 提取 studentId
+        const studentIds = userInActivityList.map(item => item.studentId);
+        console.log('studentIds:', studentIds);
+        // 再查询 Student 表
+        const students = await ctx.model.Student.find({
+            studentId: { $in: studentIds }
+        });
+        return students;
+    }
+
 
 }
 

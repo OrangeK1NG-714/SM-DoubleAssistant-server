@@ -49,7 +49,6 @@ class StdinfoService extends Service {
         const now = new Date(createTime);
         //将时间转化为新加坡时间
         const adjustedTime = new Date(createTime)
-        adjustedTime.setHours(adjustedTime.getHours() + 8)
         if (now < Date(activity.stdChooseEndDate) && now > Date(activity.stdChooseStartDate)) {
             return { code: 400, msg: '不在选老师时间内' };
         }

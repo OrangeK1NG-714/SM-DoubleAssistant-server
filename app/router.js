@@ -86,4 +86,14 @@ module.exports = app => {
   router.get('/api/admin/getUserListInActivity', controller.admin.getUserListInActivity)
   //删除某活动的某一用户
   router.delete('/api/admin/deleteUserInActivity', controller.admin.deleteUserInActivity)
+  //查询选择志愿列表
+  router.get('/api/admin/getSelectedList', controller.admin.getSelectedList)
+  //删除某项选择志愿
+  router.delete('/api/admin/deleteSelected', controller.admin.deleteSelected)
+  //查询最终志愿
+  router.get('/api/admin/getFinalList', controller.admin.getFinalList)
+  //查询某活动的所有导师
+  router.get('/api/admin/getTeacherListInActivity', controller.admin.getTeacherListInActivity)
+  //查询某活动的所有学生
+  router.get('/api/admin/getStudentListInActivity', controller.admin.getStudentListInActivity)
 };
