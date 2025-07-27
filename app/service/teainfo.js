@@ -46,6 +46,11 @@ class TeainfoService extends Service {
        
        return res
     }
+    //查询某导师是否在活动中
+    async isInActivity(teacherId, activityId) {
+        const res = await this.ctx.model.UserInActivity.findOne({ teacherId, activityId })
+        return res
+    }
 }
 
 module.exports = TeainfoService;

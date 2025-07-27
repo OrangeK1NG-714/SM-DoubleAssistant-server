@@ -254,6 +254,15 @@ class AdminService extends Service {
         return students;
     }
 
+    //重置志愿
+    async resetVolunteer(activityId, studentId) {
+        const { ctx } = this;
+        const res = await ctx.model.Choose.deleteMany({
+            activityId: activityId,
+            studentId: studentId
+        });
+        return res;
+    }
 
 }
 

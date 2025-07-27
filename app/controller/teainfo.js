@@ -42,7 +42,13 @@ class TeainfoController extends Controller {
 
         ctx.body =res
     }
-    
+    //查询某导师是否在活动中
+    async isInActivity() {
+        const { ctx, service } = this
+        const { teacherId, activityId } = ctx.request.query
+        const res = await service.teainfo.isInActivity(teacherId, activityId)
+        ctx.body = res
+    }
 }
 
 module.exports = TeainfoController;

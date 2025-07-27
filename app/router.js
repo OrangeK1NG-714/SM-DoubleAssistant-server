@@ -65,8 +65,9 @@ module.exports = app => {
   router.get('/api/student/getTeacherList', controller.stdinfo.getTeacherListInActivity)
   //查询某学生是否在活动中
   router.get('/api/student/isInActivity', controller.stdinfo.isInActivity)
-
-
+  //查询某导师是否在活动中
+  router.get('/api/teacher/isInActivity', controller.teainfo.isInActivity)
+  
 
   //以下是管理端代码
   //查询所有用户
@@ -96,4 +97,6 @@ module.exports = app => {
   router.get('/api/admin/getTeacherListInActivity', controller.admin.getTeacherListInActivity)
   //查询某活动的所有学生
   router.get('/api/admin/getStudentListInActivity', controller.admin.getStudentListInActivity)
+  //重置志愿
+  router.delete('/api/admin/resetVolunteer', controller.admin.resetVolunteer)
 };
