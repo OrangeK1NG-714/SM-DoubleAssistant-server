@@ -6,7 +6,8 @@ module.exports = app => {
     const TeacherSchema = new Schema({
         name: { type: String, default: '' },
         teacherId: { type: String, default: '' },
-        msg: { type: String, default: '' }
+        msg: { type: String, default: '' },
+        teacherType:{type:String,default:''}
     }, { versionKey: false });
     return mongoose.model('Teacher', TeacherSchema);
 };

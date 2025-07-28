@@ -6,7 +6,7 @@ class UserinfoController extends Controller {
     //注册用户账号
     async userRegister() {
         const { ctx, service } = this
-        const { username, password, role, name } = ctx.request.body
+        const { username, password, role, name,teacherType } = ctx.request.body
         ctx.validate({
             username: { type: 'registerUsername', tips: '账号格式不正确' },
             password: { type: 'registerUserPassword', tips: '密码需要6-20位的字母和数字' }
@@ -15,7 +15,7 @@ class UserinfoController extends Controller {
             ctx.send([], 400, '教师注册必须填写姓名')
             return
         }
-        const res = await service.userinfo.userRegister(username, password, role, name)
+        const res = await service.userinfo.userRegister(username, password, role, name,teacherType)
         ctx.send([], res.code, res.msg)
     }
     //登录账号post

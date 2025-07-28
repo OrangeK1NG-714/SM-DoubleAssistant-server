@@ -4,7 +4,7 @@ const Service = require('egg').Service;
 const crypto = require('crypto')
 class UserinfoService extends Service {
     //注册用户账号
-    async userRegister(username, password, role = 'student', name = '') {
+    async userRegister(username, password, role = 'student', name = '',teacherType='') {
         //判断是否已存在用户
         const db = this.ctx.model.Userinfo
         const res = await db.find({ username })
@@ -28,7 +28,8 @@ class UserinfoService extends Service {
                 await this.ctx.model.Teacher.create({
                     name: name || '',
                     teacherId: username,
-                    msg: ''
+                    msg: '',
+                    teacherType:teacherType
                 });
             }
 

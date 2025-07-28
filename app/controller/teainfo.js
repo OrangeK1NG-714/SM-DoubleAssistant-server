@@ -47,7 +47,11 @@ class TeainfoController extends Controller {
         const { ctx, service } = this
         const { teacherId, activityId } = ctx.request.query
         const res = await service.teainfo.isInActivity(teacherId, activityId)
-        ctx.body = res
+        if(res){
+            ctx.send([], 200, '导师在活动中')
+        }else{
+            ctx.send([], 201, '导师未在活动中')
+        }
     }
 }
 
