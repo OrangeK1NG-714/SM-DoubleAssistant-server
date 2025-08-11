@@ -58,6 +58,31 @@ class StdinfoController extends Controller {
         ctx.body = res
     }
 
+    //新增学生上传简历
+    async uploadResume() {
+        const { ctx, service } = this
+        console.log(ctx.request);
+        
+        const { filePath, fileName, studentId } = ctx.request.body
+         // 验证参数是否存在
+        if (!studentId) {
+            return ctx.send([], 400, '学生ID不能为空');
+        }
+        if (!fileName) {
+            return ctx.send([], 400, '文件名称不能为空');
+        }
+        if (!filePath) {
+            return ctx.send([], 400, '文件路径不能为空');
+        }
+        const res = await service.stdinfo.uploadResume(fileName, filePath, studentId)
+
+        if(res){
+            ctx.send([], 200, '上传成功')
+        }else{
+            ctx.send([], 201, '上传失败')
+        }
+    }
+
 }
 
 module.exports = StdinfoController;

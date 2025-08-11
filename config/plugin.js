@@ -20,4 +20,9 @@ module.exports = {
     enable: true,
     package: 'egg-cors',
   },
+   // 添加 multipart 插件配置
+  multipart: {
+    enable: true,
+    package: 'egg-multipart',
+  },
 };

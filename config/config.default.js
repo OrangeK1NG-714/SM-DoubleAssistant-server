@@ -15,7 +15,12 @@ module.exports = appInfo => {
 
   // add your middleware config here
   config.middleware = [];
-
+ // 配置 multipart
+  config.multipart = {
+    mode: 'file',
+    fileSize: '50mb', // 设置文件大小限制
+    whitelist: ['.pdf', '.doc', '.docx', '.jpg', '.png'], // 允许的文件类型
+  };
   //异常处理
   config.onerror = {
     accepts() {

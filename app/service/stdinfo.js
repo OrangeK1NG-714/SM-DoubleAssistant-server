@@ -83,6 +83,25 @@ class StdinfoService extends Service {
         const res = await ctx.model.Student.findOne({ studentId });
         return res;
     }
+    //新增学生上传简历
+    async uploadResume(fileName, filePath, studentId) {
+        const { ctx } = this;
+        let res = await ctx.model.Resume.findOne({ studentId });
+        console.log(res);
+        
+        if (!res) {
+            res = new ctx.model.Resume({
+                studentId: studentId,
+                fileName: fileName,
+                filePath: filePath,
+            })
+            await res.save();
+            return { code: 200, msg: '学生简历已上传', data: res };
+        }else{
+            return { code: 201, msg: '学生简历已存在', data: res };
+        }
+    }
+
 }
 
 module.exports = StdinfoService;

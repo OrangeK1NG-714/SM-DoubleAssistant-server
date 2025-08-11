@@ -68,6 +68,9 @@ module.exports = app => {
   //查询某导师是否在活动中
   router.get('/api/teacher/isInActivity', controller.teainfo.isInActivity)
   
+  //新增学生上传简历
+  router.post('/api/student/uploadResume', controller.stdinfo.uploadResume)
+
 
   //以下是管理端代码
   //查询所有用户
