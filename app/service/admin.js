@@ -264,6 +264,26 @@ class AdminService extends Service {
         return res;
     }
 
+    //配置一个活动中某位老师最大可选学生数
+    async configMaxSelectNum(activityId, teacherId, maxSelectNum) {
+        const { ctx } = this;
+        const res = await ctx.model.UserInActivity.updateOne({
+            activityId: activityId,
+            teacherId: teacherId
+        }, {
+            maxSelectNum: maxSelectNum
+        });
+        return res;
+    }
+    //查询一个活动中某位老师最大可选学生数
+    async getMaxSelectNum(activityId, teacherId) {
+        const { ctx } = this;
+        const res = await ctx.model.UserInActivity.findOne({
+            activityId: activityId,
+            teacherId: teacherId
+        });
+        return res;
+    }
 }
 
 module.exports = AdminService;

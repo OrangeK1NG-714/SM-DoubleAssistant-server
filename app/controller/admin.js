@@ -146,6 +146,20 @@ class AdminController extends Controller {
         const res = await service.admin.resetVolunteer(activityId, studentId);
         ctx.send([], res.code, res.msg);
     }
+    //配置一个活动中某位老师最大可选学生数
+    async configMaxSelectNum() {
+        const { ctx, service } = this;
+        const { activityId, teacherId, maxSelectNum } = ctx.request.body;
+        const res = await service.admin.configMaxSelectNum(activityId, teacherId, maxSelectNum);
+        ctx.send([], res.code, res.msg);
+    }
+    //查询一个活动中某位老师最大可选学生数
+    async getMaxSelectNum() {
+        const { ctx, service } = this;
+        const { activityId, teacherId } = ctx.request.query;
+        const res = await service.admin.getMaxSelectNum(activityId, teacherId);
+          ctx.body = res
+    }
 }
 
 module.exports = AdminController;

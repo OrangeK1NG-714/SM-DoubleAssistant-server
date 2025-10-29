@@ -102,4 +102,9 @@ module.exports = app => {
   router.get('/api/admin/getStudentListInActivity', controller.admin.getStudentListInActivity)
   //重置志愿
   router.delete('/api/admin/resetVolunteer', controller.admin.resetVolunteer)
+
+  //配置一个活动中某位老师最大可选学生数
+  router.put('/api/admin/configMaxSelectNum', controller.admin.configMaxSelectNum)
+  //查询一个活动中某位老师最大可选学生数
+  router.get('/api/user/getMaxSelectNum', controller.admin.getMaxSelectNum)
 };

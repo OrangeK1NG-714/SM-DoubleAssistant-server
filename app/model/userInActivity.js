@@ -13,6 +13,9 @@ module.exports = app => {
         },
         studentId: {
             type: String
+        },
+        maxSelectNum: {
+            type: Number,
         }
     }, { versionKey: false })
     return mongoose.model('UserInActivity', UserInActivitySchema)
