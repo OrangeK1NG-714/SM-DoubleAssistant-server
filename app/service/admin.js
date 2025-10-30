@@ -284,6 +284,15 @@ class AdminService extends Service {
         });
         return res;
     }
+    //查询学生的最终志愿
+    async getFinalChoose(studentId, activityId) {
+        const { ctx } = this;
+        const res = await ctx.model.Final.findOne({
+            studentId: studentId,
+            activityId: activityId
+        });
+        return res||{};
+    }
 }
 
 module.exports = AdminService;

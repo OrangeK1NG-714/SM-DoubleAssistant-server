@@ -160,6 +160,13 @@ class AdminController extends Controller {
         const res = await service.admin.getMaxSelectNum(activityId, teacherId);
           ctx.body = res
     }
+    //查询学生的最终志愿
+    async getFinalChoose() {
+        const { ctx, service } = this;
+        const { studentId, activityId } = ctx.request.query;
+        const res = await service.admin.getFinalChoose(studentId, activityId);
+        ctx.body = res
+    }
 }
 
 module.exports = AdminController;

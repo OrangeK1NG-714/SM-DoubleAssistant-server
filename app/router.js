@@ -107,4 +107,7 @@ module.exports = app => {
   router.put('/api/admin/configMaxSelectNum', controller.admin.configMaxSelectNum)
   //查询一个活动中某位老师最大可选学生数
   router.get('/api/user/getMaxSelectNum', controller.admin.getMaxSelectNum)
+
+  //查询学生的最终志愿
+  router.get('/api/admin/getFinalChoose', controller.admin.getFinalChoose)
 };
