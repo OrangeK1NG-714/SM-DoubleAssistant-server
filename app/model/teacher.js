@@ -7,7 +7,9 @@ module.exports = app => {
         name: { type: String, default: '' },
         teacherId: { type: String, default: '' },
         msg: { type: String, default: '' },
-        teacherType:{type:String,default:''}
+        teacherType: { type: String, default: '' },
+        resumeName: { type: String, default: '' },
+        resumePath: { type: String, default: '' }
     }, { versionKey: false });
     return mongoose.model('Teacher', TeacherSchema);
 };

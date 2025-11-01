@@ -93,7 +93,12 @@ class UserinfoService extends Service {
         const res = await db.find({ 'activityId': activityId,'studentId':studentId })
         return res;
     }
-
+    // //获取当前时间API
+    // async getCurrentTime() {
+    //     const { ctx } = this;
+    //     const res = await ctx.model.Time.findOne({});
+    //     return res;
+    // }
 }
 
 module.exports = UserinfoService;

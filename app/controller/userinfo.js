@@ -76,6 +76,12 @@ class UserinfoController extends Controller {
         const res = await service.userinfo.getChooseDetail(activityId, studentId);
         ctx.body = res;
     }
+    // //获取当前时间API
+    // async getCurrentTime() {
+    //     const { ctx, service } = this;
+    //     const res = await service.userinfo.getCurrentTime();
+    //     ctx.body = res;
+    // }
 }
 
 module.exports = UserinfoController;

@@ -110,4 +110,13 @@ module.exports = app => {
 
   //查询学生的最终志愿
   router.get('/api/admin/getFinalChoose', controller.admin.getFinalChoose)
+
+  // //获取当前时间API
+  // router.get('/api/user/getCurrentTime', controller.userinfo.getCurrentTime)
+
+  ////////////////////////////////////未写入apifox////////////////////////////////////
+  //管理员上传pdf
+  router.post('/api/teacher/uploadTeacherResume', controller.admin.uploadTeacherResume)
+  //查询某位老师简历
+  router.get('/api/teacher/getTeacherResume', controller.admin.getTeacherResume)
 };
