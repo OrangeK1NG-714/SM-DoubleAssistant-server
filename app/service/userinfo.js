@@ -47,10 +47,12 @@ class UserinfoService extends Service {
         //lean()转化为普通的JS数据，否则会带MongoDB自带字段
         const res = await db.find({ username, password: passwordHash }).lean()
         if (res.length > 0) {
-            const token = { token: this.ctx.generateToken(res[0]._id) }
-            // console.log(token);
+            const accessToken = this.ctx.generateToken(res[0]._id, res[0].role)
+            const refreshToken = this.ctx.generateRefreshToken(res[0]._id)
+            const tokens = { accessToken, refreshToken }
+            // console.log(tokens);
             return {
-                data: { ...res[0], ...token },
+                data: { ...res[0], ...tokens },
                 msg: 'success',
                 code: 200
             }

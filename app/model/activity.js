@@ -16,6 +16,7 @@ module.exports = app => {
         thirdChooseEndDate: { type: Date, required: true },
         stdChooseStartDate: { type: Date, required: true },
         stdChooseEndDate: { type: Date, required: true },
+        subscribeSent: { type: Boolean, default: false },
     }, { versionKey: false });
     return mongoose.model('Activity', ActivitySchema);
 }   

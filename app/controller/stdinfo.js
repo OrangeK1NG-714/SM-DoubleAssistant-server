@@ -25,8 +25,8 @@ class StdinfoController extends Controller {
     //新增学生选老师选项
     async selectTeacher() {
         const { ctx, service } = this
-        const { studentId, teacherId, order, isChose, activityId, createTime } = ctx.request.body
-        const res = await service.stdinfo.selectTeacher(studentId, teacherId, order, isChose, activityId, createTime)
+        const { studentId, teacherId, order, isChose, activityId, createTime, subscribeTemplateId, subscribeStatus } = ctx.request.body
+        const res = await service.stdinfo.selectTeacher(studentId, teacherId, order, isChose, activityId, createTime, subscribeTemplateId, subscribeStatus)
         ctx.send([], res.code, res.msg)
     }
     //查询某活动的所有老师
@@ -56,6 +56,17 @@ class StdinfoController extends Controller {
         const res = await service.stdinfo.getStudentMsg(studentId)
         console.log(res);
         ctx.body = res
+    }
+
+    //保存学生 openid（通过微信 code 换取）
+    async saveOpenid() {
+        const { ctx, service } = this
+        const { code, studentId } = ctx.request.body
+        if (!code || !studentId) {
+            return ctx.send([], 400, '缺少参数 code 或 studentId')
+        }
+        const res = await service.stdinfo.saveOpenid(code, studentId)
+        ctx.send([], res.code, res.msg)
     }
 
     //新增学生上传简历

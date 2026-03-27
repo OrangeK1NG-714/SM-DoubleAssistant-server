@@ -2,12 +2,13 @@ const jwt = require('jsonwebtoken');
 
 module.exports = (options = { requiredRole: null }) => { // 支持传入需要的角色
   return async (ctx, next) => {
+      console.log('11111111',ctx.headers);
     // 1. 获取 Token
     const authHeader = ctx.headers.authorization;
     if (!authHeader) {
       return ctx.send([], 401, '未提供 Token');
     }
-console.log(authHeader);
+  console.log(authHeader,'9999999999999');
 
     // 提取 Bearer Token
     const token = authHeader.split(' ')[1]; // 格式: "Bearer <token>"
@@ -29,6 +30,9 @@ console.log(authHeader);
       return ctx.send([], 401, '无效 Token');
     }
 
+    console.log(options.requiredRole);
+    console.log(decoded.role);
+    
     // 3. 检查角色权限（如果配置了 requiredRole）
     if (options.requiredRole && decoded.role !== options.requiredRole) {
       return ctx.send([], 403, '无权访问此资源');

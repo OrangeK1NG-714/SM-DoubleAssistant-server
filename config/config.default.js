@@ -68,6 +68,13 @@ module.exports = appInfo => {
   config.validate = {
     convert: true
   }
+  // 微信小程序配置
+  config.wxMiniApp = {
+    appid: 'wx2ef7a7980c58d250',
+    secret: '624be97a30fedcec017fd39606d54680',
+    subscribeTemplateId: 'eLfrwx8SgoCSv3vXzAQNUhdCXr69xg5mhMio_xFHd3U',
+  }
+
   //配置JWT
   config.jwt = {
     secret: 'Linchao0714',

@@ -10,6 +10,8 @@ module.exports = app => {
         isChose: { type: Boolean, required: true },
         activityId: { type: String, required: true },
         createTime: { type: Date, required: true },
+        subscribeTemplateId: { type: String, default: '' },
+        subscribeStatus: { type: String, default: '' },
     }, { versionKey: false });
     return mongoose.model('Choose', ChooseSchema);
 };

@@ -27,9 +27,8 @@ class UserinfoController extends Controller {
             password: { type: 'registerUserPassword', tips: '密码需要6-20位的字母和数字' }
         }, ctx.request.body)
         const { data, msg, code } = await service.userinfo.userLogin(username, password)
-        console.log(data, code, msg);
         // 设置Authorization头
-        ctx.set('Authorization', `Bearer ${data.token}`);
+        ctx.set('Authorization', `Bearer ${data.accessToken}`);
         ctx.send(data, code, msg)
     }
     // 获取用户详细信息
@@ -40,6 +39,7 @@ class UserinfoController extends Controller {
             ctx.body = { code: 400, msg: '缺少参数' };
             return;
         }
+        
         const res = await service.userinfo.getUserDetail(username, role);
         ctx.body = res;
     }
@@ -82,6 +82,35 @@ class UserinfoController extends Controller {
     //     const res = await service.userinfo.getCurrentTime();
     //     ctx.body = res;
     // }
+    
+    // 刷新token
+    async refreshToken() {
+        const { ctx } = this;
+        const { refreshToken } = ctx.request.body;
+        
+        if (!refreshToken) {
+            return ctx.send([], 401, '未提供refresh token');
+        }
+        
+        try {
+            const decoded = require('jsonwebtoken').verify(refreshToken, ctx.app.config.jwt.secret);
+            
+            // 验证是否为refresh token
+            if (decoded.type !== 'refresh') {
+                return ctx.send([], 401, '无效的refresh token');
+            }
+            
+            // 生成新的access token
+            const accessToken = ctx.generateToken(decoded.uid);
+            
+            ctx.send({ accessToken }, 200, 'token刷新成功');
+        } catch (error) {
+            if (error.name === 'TokenExpiredError') {
+                return ctx.send([], 401, 'refresh token已过期');
+            }
+            return ctx.send([], 401, '无效的refresh token');
+        }
+    }
 }
 
 module.exports = UserinfoController;

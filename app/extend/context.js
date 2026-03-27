@@ -9,8 +9,14 @@ module.exports = {
         this.status = code
     },
     //加密生成token
-    generateToken(uid) {
+    generateToken(uid, role) {
         const { secret, expiresIn } = this.app.config.jwt
-        return jwt.sign({ uid }, secret, { expiresIn })
+        return jwt.sign({ uid, role, type: 'access' }, secret, { expiresIn })
+    },
+    //生成刷新token
+    generateRefreshToken(uid) {
+        const { secret } = this.app.config.jwt
+        // refresh token 有效期更长，比如7天
+        return jwt.sign({ uid, type: 'refresh' }, secret, { expiresIn: 60 * 60 * 24 * 7 })
     }
 }
