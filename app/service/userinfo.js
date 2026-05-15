@@ -19,21 +19,26 @@ class UserinfoService extends Service {
         }
 
         const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
-        await db.create({ username, password: passwordHash, role });
+        const user = await db.create({ username, password: passwordHash, role });
 
-        if (role === 'student') {
-            await this.ctx.model.Student.create({
-                studentId: username,
-                mentor: '',
-                data: {},
-            });
-        } else if (role === 'teacher') {
-            await this.ctx.model.Teacher.create({
-                name: name || '',
-                teacherId: username,
-                msg: '',
-                teacherType,
-            });
+        try {
+            if (role === 'student') {
+                await this.ctx.model.Student.create({
+                    studentId: username,
+                    mentor: '',
+                    data: {},
+                });
+            } else if (role === 'teacher') {
+                await this.ctx.model.Teacher.create({
+                    name: name || '',
+                    teacherId: username,
+                    msg: '',
+                    teacherType,
+                });
+            }
+        } catch (err) {
+            await db.deleteOne({ _id: user._id });
+            throw err;
         }
 
         return { msg: 'success', code: 200 };
@@ -64,8 +69,8 @@ class UserinfoService extends Service {
             return { data: [], msg: '账号或密码错误', code: 422 };
         }
 
-        const accessToken = this.ctx.generateToken(user._id, user.role);
-        const refreshToken = this.ctx.generateRefreshToken(user._id);
+        const accessToken = this.ctx.generateToken(user._id, user.role, user.username);
+        const refreshToken = this.ctx.generateRefreshToken(user._id, user.role, user.username);
 
         return {
             data: {
@@ -104,8 +109,8 @@ class UserinfoService extends Service {
     }
 
     async getChooseCount(teacherId, activityId) {
-        const res = await this.ctx.model.Choose.find({ teacherId, activityId });
-        return res;
+        const count = await this.ctx.model.Choose.countDocuments({ teacherId, activityId });
+        return count;
     }
 
     async getChooseDetail(activityId, studentId) {

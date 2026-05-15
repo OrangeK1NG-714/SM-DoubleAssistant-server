@@ -115,7 +115,7 @@ class UserinfoController extends Controller {
             if (decoded.type !== 'refresh') {
                 return ctx.send([], 401, '无效的refresh token');
             }
-            const accessToken = ctx.generateToken(decoded.uid);
+            const accessToken = ctx.generateToken(decoded.uid, decoded.role, decoded.username);
             ctx.send({ accessToken }, 200, 'token刷新成功');
         } catch (error) {
             if (error.name === 'TokenExpiredError') {

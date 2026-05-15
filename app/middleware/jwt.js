@@ -29,6 +29,7 @@ module.exports = (options = { requiredRole: null }) => {
         ctx.auth = {
             uid: decoded.uid,
             role: decoded.role,
+            username: decoded.username,
         };
 
         await next();
