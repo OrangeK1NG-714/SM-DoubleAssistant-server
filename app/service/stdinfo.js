@@ -39,6 +39,9 @@ class StdinfoService extends Service {
             return { code: 404, msg: '活动不存在' };
         }
         const now = new Date(createTime);
+        if (isNaN(now.getTime())) {
+            return { code: 400, msg: 'createTime 不是有效时间' };
+        }
         const startDate = new Date(activity.stdChooseStartDate);
         const endDate = new Date(activity.stdChooseEndDate);
         if (now < startDate || now > endDate) {

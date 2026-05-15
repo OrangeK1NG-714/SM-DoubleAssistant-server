@@ -15,7 +15,7 @@ class UserinfoService extends Service {
         const db = this.ctx.model.Userinfo;
         const res = await db.find({ username });
         if (res.length > 0) {
-            return { msg: '账号已经存在', code: 202 };
+            return { msg: '账号已经存在', code: 409 };
         }
 
         const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
@@ -83,10 +83,16 @@ class UserinfoService extends Service {
     async getUserDetail(username, role) {
         if (role === 'student') {
             const data = await this.ctx.model.Student.findOne({ studentId: username });
-            const isEmpty = Object.keys(data.data).length;
+            if (!data) {
+                return { code: 404, msg: '学生信息不存在' };
+            }
+            const isEmpty = Object.keys(data.data || {}).length;
             return { code: 200, data, isEmpty };
         } else if (role === 'teacher') {
             const data = await this.ctx.model.Teacher.findOne({ teacherId: username });
+            if (!data) {
+                return { code: 404, msg: '教师信息不存在' };
+            }
             return { code: 200, data };
         }
         return { code: 200, msg: '管理员您好！' };

@@ -19,6 +19,10 @@ class TeainfoService extends Service {
     }
 
     async selectStudent(studentId, teacherId, activityId, data, order) {
+        const existing = await this.ctx.model.Final.findOne({ studentId, teacherId, activityId });
+        if (existing) {
+            return { code: 409, msg: '该学生已被选择，请勿重复操作' };
+        }
         const choose = await this.ctx.model.Final.create({ studentId, teacherId, activityId, data, order });
         return { code: 200, msg: '老师已选学生', data: choose };
     }
