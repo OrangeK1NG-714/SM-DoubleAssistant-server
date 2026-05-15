@@ -27,7 +27,8 @@ class AiController extends Controller {
       ctx.send(result.items, 200, 'AI 推荐成功');
     } catch (err) {
       ctx.logger.error('[AI recommendTeachers] error:', err);
-      ctx.send([], 500, `AI 推荐失败: ${err.message}`);
+      ctx.logger.error('[AI recommendTeachers] detail:', err.message);
+      ctx.send([], 500, 'AI 推荐失败，请稍后重试');
     }
   }
 }

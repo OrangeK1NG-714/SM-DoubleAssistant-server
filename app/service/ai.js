@@ -2,6 +2,7 @@
 
 const Service = require('egg').Service;
 const fs = require('fs');
+const fsp = fs.promises;
 
 const DIRECTION_KEYWORDS = {
     ai: ['人工智能', '深度学习', '机器学习', '大模型', '多模态', '知识图谱', '数据挖掘', '计算机视觉', 'nlp', '语音', '自然语言', '智能', '算法', '脑', '检测'],
@@ -45,7 +46,7 @@ function computeDirectionScore(teacherText, studentDirection) {
 }
 
 class AiService extends Service {
-    _loadTeacherProfiles() {
+    async _loadTeacherProfiles() {
         const csvPath = this.app.config.aiModel.teacherDataPath;
         if (!csvPath || !fs.existsSync(csvPath)) return {};
 
@@ -53,7 +54,7 @@ class AiService extends Service {
             return _cachedProfiles;
         }
 
-        const content = fs.readFileSync(csvPath, 'utf-8');
+        const content = await fsp.readFile(csvPath, 'utf-8');
         const lines = content.split('\n').filter(l => l.trim());
         if (lines.length < 2) return {};
 
@@ -116,7 +117,7 @@ class AiService extends Service {
             chooseByTeacher[c.teacherId].push(c);
         });
 
-        const profileMap = this._loadTeacherProfiles();
+        const profileMap = await this._loadTeacherProfiles();
 
         const scored = [];
         for (const tid of teacherIds) {

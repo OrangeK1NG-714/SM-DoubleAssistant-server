@@ -80,8 +80,22 @@ module.exports = appInfo => {
   };
 
   config.cors = {
-    origin: '*',
+    origin(ctx) {
+      const allowList = [
+        'http://localhost:5173',
+        'http://localhost:3000',
+        'http://127.0.0.1:5173',
+        'http://127.0.0.1:3000',
+        'https://richardq.tech',
+      ];
+      const requestOrigin = ctx.get('origin');
+      if (allowList.includes(requestOrigin)) {
+        return requestOrigin;
+      }
+      return '';
+    },
     allowMethods: 'GET,HEAD,PUT,POST,DELETE,PATCH',
+    credentials: true,
     exposeHeaders: ['Authorization'],
   };
 
