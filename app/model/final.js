@@ -1,4 +1,3 @@
-// 终表
 module.exports = app => {
     const mongoose = app.mongoose;
     mongoose.pluralize(null);
@@ -10,5 +9,7 @@ module.exports = app => {
         data: { type: Object, required: true },
         order: { type: Number, required: true },
     }, { versionKey: false });
+    FinalSchema.index({ studentId: 1, activityId: 1 });
+    FinalSchema.index({ teacherId: 1, activityId: 1 });
     return mongoose.model('Final', FinalSchema);
 };

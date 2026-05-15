@@ -1,4 +1,3 @@
-// 选择信息表
 module.exports = app => {
     const mongoose = app.mongoose;
     mongoose.pluralize(null);
@@ -13,5 +12,7 @@ module.exports = app => {
         subscribeTemplateId: { type: String, default: '' },
         subscribeStatus: { type: String, default: '' },
     }, { versionKey: false });
+    ChooseSchema.index({ studentId: 1, activityId: 1 });
+    ChooseSchema.index({ teacherId: 1, activityId: 1 });
     return mongoose.model('Choose', ChooseSchema);
 };
