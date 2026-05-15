@@ -94,6 +94,7 @@ class WechatService extends Service {
 
         if (result.data && result.data.errcode !== 0) {
             this.ctx.logger.error('[wechat] 订阅消息发送失败:', result.data);
+            throw new Error('微信订阅消息发送失败: ' + JSON.stringify(result.data));
         }
 
         return result.data;

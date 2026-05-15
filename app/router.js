@@ -123,4 +123,7 @@ module.exports = app => {
   router.post('/api/teacher/uploadTeacherResume', app.middleware.jwt({ requiredRole: 'admin' }), controller.admin.uploadTeacherResume)
   //查询某位老师简历
   router.get('/api/teacher/getTeacherResume', app.middleware.jwt(), controller.admin.getTeacherResume)
+
+  // AI 推荐导师
+  router.get('/api/student/recommendTeachers', app.middleware.jwt(), controller.ai.recommendTeachers)
 };

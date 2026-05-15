@@ -86,6 +86,16 @@ module.exports = appInfo => {
     allowMethods:'GET,HEAD,PUT,POST,DELETE,PATCH',
     exposeHeaders: ['Authorization']
   }
+  // AI 模型配置
+  const path = require('path');
+  config.aiModel = {
+    pythonPath: 'python',
+    predictScriptPath: path.resolve(__dirname, '../../ai-model/predict_request.py'),
+    modelPath: path.resolve(__dirname, '../../ai-model/artifacts/recommender_model.joblib'),
+    metricsPath: path.resolve(__dirname, '../../ai-model/artifacts/metrics.json'),
+    teacherDataPath: path.resolve(__dirname, '../../ai-model/data/teacher_data.csv'),
+  };
+
   // add your user config here
   const userConfig = {
     // myAppName: 'egg',

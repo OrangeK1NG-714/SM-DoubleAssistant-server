@@ -43,7 +43,7 @@ class SendSubscribeMsg extends Subscription {
                 const chooseList = await ctx.model.Choose.find({ activityId });
                 const allStudentIds = new Set(chooseList.map(r => r.studentId));
 
-                let successSelected = 0, successRejected = 0, skipped = 0;
+                let successSelected = 0, successRejected = 0, skipped = 0, failed = 0;
 
                 for (const studentId of allStudentIds) {
                     try {
@@ -85,17 +85,27 @@ class SendSubscribeMsg extends Subscription {
                             ctx.logger.info(`[sendSubscribeMsg] 已推送「落选」给学生 ${studentId}`);
                         }
                     } catch (err) {
+                        failed++;
                         ctx.logger.error(`[sendSubscribeMsg] 推送给学生 ${studentId} 失败:`, err);
                     }
                 }
 
-                // 标记该活动已推送，防止重复
-                activity.subscribeSent = true;
-                await activity.save();
+                const totalSuccess = successSelected + successRejected;
+                if (totalSuccess > 0 && failed === 0) {
+                    // 至少成功发送 1 条，且无失败，才标记已推送
+                    activity.subscribeSent = true;
+                    await activity.save();
+                    ctx.logger.info(`[sendSubscribeMsg] 活动 ${activityId} 已标记 subscribeSent=true`);
+                } else {
+                    // 保持 false，便于后续重试
+                    ctx.logger.warn(
+                        `[sendSubscribeMsg] 活动 ${activityId} 未标记已推送（success=${totalSuccess}, failed=${failed}），下次将继续重试`
+                    );
+                }
 
                 ctx.logger.info(
                     `[sendSubscribeMsg] 活动 ${activityId} 推送完成 ` +
-                    `被选中 ${successSelected} 人，落选 ${successRejected} 人，跳过（无openid）${skipped} 人`
+                    `被选中 ${successSelected} 人，落选 ${successRejected} 人，失败 ${failed} 人，跳过（无openid）${skipped} 人`
                 );
             }
         } catch (err) {
