@@ -7,6 +7,8 @@
     "declarations": true
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^17.4.2",
     "egg": "^3.17.5",
     "egg-cors": "^3.0.1",
     "egg-mongoose": "^4.0.1",

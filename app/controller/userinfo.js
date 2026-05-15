@@ -1,37 +1,38 @@
 'use strict';
 
 const Controller = require('egg').Controller;
+const jwt = require('jsonwebtoken');
 
 class UserinfoController extends Controller {
-    //注册用户账号
     async userRegister() {
-        const { ctx, service } = this
-        const { username, password, role, name,teacherType } = ctx.request.body
+        const { ctx, service } = this;
+        const { username, password, role, name, teacherType } = ctx.request.body;
         ctx.validate({
             username: { type: 'registerUsername', tips: '账号格式不正确' },
-            password: { type: 'registerUserPassword', tips: '密码需要6-20位的字母和数字' }
-        }, ctx.request.body)
+            password: { type: 'registerUserPassword', tips: '密码需要6-20位的字母和数字' },
+        }, ctx.request.body);
         if (role === 'teacher' && !name) {
-            ctx.send([], 400, '教师注册必须填写姓名')
-            return
+            ctx.send([], 400, '教师注册必须填写姓名');
+            return;
         }
-        const res = await service.userinfo.userRegister(username, password, role, name,teacherType)
-        ctx.send([], res.code, res.msg)
+        const res = await service.userinfo.userRegister(username, password, role, name, teacherType);
+        ctx.send([], res.code, res.msg);
     }
-    //登录账号post
+
     async userLogin() {
-        const { ctx, service } = this
-        const { username, password } = ctx.request.body
+        const { ctx, service } = this;
+        const { username, password } = ctx.request.body;
         ctx.validate({
             username: { type: 'registerUsername', tips: '账号格式不正确' },
-            password: { type: 'registerUserPassword', tips: '密码需要6-20位的字母和数字' }
-        }, ctx.request.body)
-        const { data, msg, code } = await service.userinfo.userLogin(username, password)
-        // 设置Authorization头
-        ctx.set('Authorization', `Bearer ${data.accessToken}`);
-        ctx.send(data, code, msg)
+            password: { type: 'registerUserPassword', tips: '密码需要6-20位的字母和数字' },
+        }, ctx.request.body);
+        const { data, msg, code } = await service.userinfo.userLogin(username, password);
+        if (data.accessToken) {
+            ctx.set('Authorization', `Bearer ${data.accessToken}`);
+        }
+        ctx.send(data, code, msg);
     }
-    // 获取用户详细信息
+
     async getUserDetail() {
         const { ctx, service } = this;
         const { username, role } = ctx.query;
@@ -39,11 +40,10 @@ class UserinfoController extends Controller {
             ctx.body = { code: 400, msg: '缺少参数' };
             return;
         }
-        
         const res = await service.userinfo.getUserDetail(username, role);
         ctx.body = res;
     }
-    //根据活动id去查询所有学生的选择情况
+
     async getChooseList() {
         const { ctx, service } = this;
         const { activityId } = ctx.query;
@@ -54,7 +54,7 @@ class UserinfoController extends Controller {
         const res = await service.userinfo.getChooseList(activityId);
         ctx.body = res;
     }
-    //查询已选学生数(通过老师id+活动id)
+
     async getChooseCount() {
         const { ctx, service } = this;
         const { teacherId, activityId } = ctx.query;
@@ -65,7 +65,7 @@ class UserinfoController extends Controller {
         const res = await service.userinfo.getChooseCount(teacherId, activityId);
         ctx.body = res;
     }
-    //查询一个学生的选择情况(根据活动id+学生id)
+
     async getChooseDetail() {
         const { ctx, service } = this;
         const { activityId, studentId } = ctx.query;
@@ -76,33 +76,23 @@ class UserinfoController extends Controller {
         const res = await service.userinfo.getChooseDetail(activityId, studentId);
         ctx.body = res;
     }
-    // //获取当前时间API
-    // async getCurrentTime() {
-    //     const { ctx, service } = this;
-    //     const res = await service.userinfo.getCurrentTime();
-    //     ctx.body = res;
-    // }
-    
-    // 刷新token
+
     async refreshToken() {
         const { ctx } = this;
         const { refreshToken } = ctx.request.body;
-        
+
         if (!refreshToken) {
             return ctx.send([], 401, '未提供refresh token');
         }
-        
+
         try {
-            const decoded = require('jsonwebtoken').verify(refreshToken, ctx.app.config.jwt.secret);
-            
-            // 验证是否为refresh token
+            const decoded = jwt.verify(refreshToken, ctx.app.config.jwt.refreshSecret);
+
             if (decoded.type !== 'refresh') {
                 return ctx.send([], 401, '无效的refresh token');
             }
-            
-            // 生成新的access token
+
             const accessToken = ctx.generateToken(decoded.uid);
-            
             ctx.send({ accessToken }, 200, 'token刷新成功');
         } catch (error) {
             if (error.name === 'TokenExpiredError') {

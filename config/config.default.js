@@ -1,5 +1,9 @@
 /* eslint valid-jsdoc: "off" */
 
+const path = require('path');
+
+require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
+
 /**
  * @param {Egg.EggAppInfo} appInfo app info
  */
@@ -10,84 +14,77 @@ module.exports = appInfo => {
    **/
   const config = exports = {};
 
-  // use for cookie sign key, should change to your own and keep security
   config.keys = appInfo.name + '_1751160937705_7579';
 
-  // add your middleware config here
   config.middleware = [];
- // 配置 multipart
+
   config.multipart = {
     mode: 'file',
-    fileSize: '50mb', // 设置文件大小限制
-    whitelist: ['.pdf', '.doc', '.docx', '.jpg', '.png'], // 允许的文件类型
+    fileSize: '50mb',
+    whitelist: ['.pdf', '.doc', '.docx', '.jpg', '.png'],
   };
-  //异常处理
+
   config.onerror = {
     accepts() {
-      return 'json'
+      return 'json';
     },
     json(err, ctx) {
-      console.log(err);
-      //自定义错误时的响应体
       if (err.status === 422) {
-        if (err.errors[0].message == 'required') {
+        if (err.errors[0].message === 'required') {
           ctx.body = {
             msg: '缺少必传参数',
-            field: err.errors[0].field
-          }
-          ctx.status = 400
+            field: err.errors[0].field,
+          };
+          ctx.status = 400;
         } else {
-          console.log('else');
           ctx.body = {
             msg: err.errors[0].message,
-            field: err.errors[0].field
-          }
-          ctx.status = 422
+            field: err.errors[0].field,
+          };
+          ctx.status = 422;
         }
       } else {
         ctx.body = {
           msg: err.message,
-          ...(err.errors && { errors: err.errors })
-        }
-        ctx.status = err.status
+          ...(err.errors && { errors: err.errors }),
+        };
+        ctx.status = err.status;
       }
+    },
+  };
 
-    }
-  }
-  //连接数据库
   config.mongoose = {
-    url: 'mongodb://127.0.0.1/ms-da-projects',
-  }
-  //取消安全威胁csrf的防范
+    url: process.env.MONGO_URL || 'mongodb://127.0.0.1/ms-da-projects',
+  };
+
   config.security = {
     csrf: {
-      enable: false
-    }
-  }
-  //配置校验
-  config.validate = {
-    convert: true
-  }
-  // 微信小程序配置
-  config.wxMiniApp = {
-    appid: 'wx2ef7a7980c58d250',
-    secret: '624be97a30fedcec017fd39606d54680',
-    subscribeTemplateId: 'eLfrwx8SgoCSv3vXzAQNUhdCXr69xg5mhMio_xFHd3U',
-  }
+      enable: false,
+    },
+  };
 
-  //配置JWT
+  config.validate = {
+    convert: true,
+  };
+
+  config.wxMiniApp = {
+    appid: process.env.WX_APPID,
+    secret: process.env.WX_SECRET,
+    subscribeTemplateId: process.env.WX_SUBSCRIBE_TEMPLATE_ID,
+  };
+
   config.jwt = {
-    secret: 'Linchao0714',
-    expiresIn: 60 * 60 * 24 * 3
-  }
-  //跨域
+    secret: process.env.JWT_SECRET,
+    refreshSecret: process.env.JWT_REFRESH_SECRET,
+    expiresIn: 60 * 60 * 24 * 3,
+  };
+
   config.cors = {
-    origin:'*',
-    allowMethods:'GET,HEAD,PUT,POST,DELETE,PATCH',
-    exposeHeaders: ['Authorization']
-  }
-  // AI 模型配置
-  const path = require('path');
+    origin: '*',
+    allowMethods: 'GET,HEAD,PUT,POST,DELETE,PATCH',
+    exposeHeaders: ['Authorization'],
+  };
+
   config.aiModel = {
     pythonPath: 'python',
     predictScriptPath: path.resolve(__dirname, '../../ai-model/predict_request.py'),
@@ -96,10 +93,7 @@ module.exports = appInfo => {
     teacherDataPath: path.resolve(__dirname, '../../ai-model/data/teacher_data.csv'),
   };
 
-  // add your user config here
-  const userConfig = {
-    // myAppName: 'egg',
-  };
+  const userConfig = {};
 
   return {
     ...config,
