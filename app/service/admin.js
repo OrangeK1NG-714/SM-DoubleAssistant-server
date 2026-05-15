@@ -50,15 +50,25 @@ class AdminService extends Service {
         if (!res) {
             return { code: 400, msg: '活动不存在' };
         }
+        const activityId = String(id);
+        await Promise.all([
+            ctx.model.UserInActivity.deleteMany({ activityId }),
+            ctx.model.Choose.deleteMany({ activityId }),
+            ctx.model.Final.deleteMany({ activityId }),
+        ]);
         return { code: 200, msg: '活动删除成功' };
     }
 
     async addTeacherToActivity(activityId, teacherId = null, studentId = null) {
         const { ctx } = this;
-        const data = { activityId };
-        if (teacherId) data.teacherId = teacherId;
-        if (studentId) data.studentId = studentId;
-        await ctx.model.UserInActivity.create(data);
+        const query = { activityId };
+        if (teacherId) query.teacherId = teacherId;
+        if (studentId) query.studentId = studentId;
+        const existing = await ctx.model.UserInActivity.findOne(query);
+        if (existing) {
+            return { code: 409, msg: '该用户已在活动中，请勿重复添加' };
+        }
+        await ctx.model.UserInActivity.create(query);
         return { code: 200, msg: '添加成功' };
     }
 
