@@ -11,6 +11,8 @@ module.exports = app => {
   router.post('/api/admin/register', app.middleware.jwt({ requiredRole: 'admin' }), controller.userinfo.userRegister)
   //登录用户
   router.post('/api/user/login', controller.userinfo.userLogin)
+  //用户自助修改密码（需验证旧密码，无需登录token）
+  router.post('/api/user/selfResetPassword', controller.userinfo.selfResetPassword)
   //刷新token
   router.post('/api/user/refreshToken', controller.userinfo.refreshToken)
   //获取用户信息

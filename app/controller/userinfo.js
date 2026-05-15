@@ -104,6 +104,26 @@ class UserinfoController extends Controller {
         }
     }
 
+    async selfResetPassword() {
+        const { ctx, service } = this;
+        try {
+            const { username, oldPassword, newPassword } = ctx.request.body;
+            if (!username || !oldPassword || !newPassword) {
+                return ctx.send([], 400, '缺少必填参数');
+            }
+            ctx.validate({
+                username: { type: 'registerUsername', tips: '账号格式不正确' },
+                newPassword: { type: 'registerUserPassword', tips: '密码需要6-20位的字母和数字' },
+            }, { username, newPassword });
+            const res = await service.userinfo.selfResetPassword(username, oldPassword, newPassword);
+            ctx.send([], res.code, res.msg);
+        } catch (err) {
+            if (err.status === 422) throw err;
+            ctx.logger.error('selfResetPassword error:', err);
+            ctx.send([], 500, '服务器错误');
+        }
+    }
+
     async refreshToken() {
         const { ctx } = this;
         const { refreshToken } = ctx.request.body;

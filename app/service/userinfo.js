@@ -103,6 +103,30 @@ class UserinfoService extends Service {
         return { code: 200, msg: '管理员您好！' };
     }
 
+    async selfResetPassword(username, oldPassword, newPassword) {
+        const db = this.ctx.model.Userinfo;
+        const user = await db.findOne({ username });
+        if (!user) {
+            return { code: 404, msg: '用户不存在' };
+        }
+
+        let passwordValid = false;
+        if (isSha256Hash(user.password)) {
+            const sha256Hash = crypto.createHash('sha256').update(oldPassword).digest('hex');
+            passwordValid = sha256Hash === user.password;
+        } else {
+            passwordValid = await bcrypt.compare(oldPassword, user.password);
+        }
+
+        if (!passwordValid) {
+            return { code: 422, msg: '原密码错误' };
+        }
+
+        user.password = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+        await user.save();
+        return { code: 200, msg: '密码修改成功' };
+    }
+
     async getChooseList(activityId) {
         const res = await this.ctx.model.Choose.find({ activityId });
         return res;
