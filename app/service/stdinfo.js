@@ -3,17 +3,18 @@
 const Service = require('egg').Service;
 
 class StdinfoService extends Service {
-    async writeUserMsg(name, gender, studentId, grade, classNum, phone, gpa, direction) {
+    async writeUserMsg(name, gender, studentId, grade, classNum, phone, gpa, direction, qq, wechat) {
         try {
+            const data = { name, gender, studentId, grade, classNum, phone, gpa, direction, qq, wechat };
             let student = await this.ctx.model.Student.findOne({ studentId });
             if (student) {
-                student.data = { name, gender, studentId, grade, classNum, phone, gpa, direction };
+                student.data = data;
                 await student.save();
                 return { code: 200, msg: '学生信息已更新', data: student };
             }
             const newStudent = await this.ctx.model.Student.create({
                 studentId,
-                data: { name, gender, studentId, grade, classNum, phone, gpa, direction },
+                data,
             });
             return { code: 200, msg: '学生信息新增成功', data: newStudent };
         } catch (error) {

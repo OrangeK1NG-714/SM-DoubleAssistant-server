@@ -9,14 +9,14 @@ class StdinfoController extends Controller {
             if (ctx.auth.role !== 'student' && ctx.auth.role !== 'admin') {
                 return ctx.send([], 403, '仅学生或管理员可操作');
             }
-            const { name, gender, studentId, grade, classNum, phone, gpa, direction } = ctx.request.body;
+            const { name, gender, studentId, grade, classNum, phone, gpa, direction, qq, wechat } = ctx.request.body;
             if (!studentId) {
                 return ctx.send([], 400, '缺少必填参数 studentId');
             }
             if (ctx.auth.role === 'student' && ctx.auth.username !== studentId) {
                 return ctx.send([], 403, '无权操作他人信息');
             }
-            const res = await service.stdinfo.writeUserMsg(name, gender, studentId, grade, classNum, phone, gpa, direction);
+            const res = await service.stdinfo.writeUserMsg(name, gender, studentId, grade, classNum, phone, gpa, direction, qq, wechat);
             ctx.send([], res.code, res.msg);
         } catch (err) {
             ctx.logger.error('writeUserMsg error:', err);
