@@ -3,79 +3,65 @@
 const Controller = require('egg').Controller;
 
 class StdinfoController extends Controller {
-    //写入学生信息
     async writeUserMsg() {
-        const { ctx, service } = this
-        // console.log(ctx, service );
-
-        const { name, gender, studentId, grade, classNum, phone, gpa, direction } = ctx.request.body
-        // console.log(name, gender, studentId);
-
-        const res = await service.stdinfo.writeUserMsg(name, gender, studentId, grade, classNum, phone, gpa, direction)
-        console.log(res);
-        ctx.send([], res.code, res.msg)
+        const { ctx, service } = this;
+        const { name, gender, studentId, grade, classNum, phone, gpa, direction } = ctx.request.body;
+        const res = await service.stdinfo.writeUserMsg(name, gender, studentId, grade, classNum, phone, gpa, direction);
+        ctx.send([], res.code, res.msg);
     }
-    //更新学生信息
+
     async updateUserMsg() {
-        const { ctx, service } = this
-        const { name, gender, studentId } = ctx.request.body
-        const res = await service.stdinfo.updateUserMsg(name, gender, studentId)
-        ctx.send([], res.code, res.msg)
+        const { ctx, service } = this;
+        const { name, gender, studentId } = ctx.request.body;
+        const res = await service.stdinfo.updateUserMsg(name, gender, studentId);
+        ctx.send([], res.code, res.msg);
     }
-    //新增学生选老师选项
+
     async selectTeacher() {
-        const { ctx, service } = this
-        const { studentId, teacherId, order, isChose, activityId, createTime, subscribeTemplateId, subscribeStatus } = ctx.request.body
-        const res = await service.stdinfo.selectTeacher(studentId, teacherId, order, isChose, activityId, createTime, subscribeTemplateId, subscribeStatus)
-        ctx.send([], res.code, res.msg)
+        const { ctx, service } = this;
+        const { studentId, teacherId, order, isChose, activityId, createTime, subscribeTemplateId, subscribeStatus } = ctx.request.body;
+        const res = await service.stdinfo.selectTeacher(studentId, teacherId, order, isChose, activityId, createTime, subscribeTemplateId, subscribeStatus);
+        ctx.send([], res.code, res.msg);
     }
-    //查询某活动的所有老师
+
     async getTeacherListInActivity() {
-        const { ctx, service } = this
-        const { activityId } = ctx.request.query
-        const res = await service.stdinfo.getTeacherListInActivity(activityId)
-        ctx.body = res
+        const { ctx, service } = this;
+        const { activityId } = ctx.request.query;
+        const res = await service.stdinfo.getTeacherListInActivity(activityId);
+        ctx.body = res;
     }
 
-    //查询某学生是否在活动中
     async isInActivity() {
-        const { ctx, service } = this
-        const { studentId, activityId } = ctx.request.query
-        const res = await service.stdinfo.isInActivity(studentId, activityId)
-        if(res){
-            ctx.send([], 200, '学生在活动中')
-        }else{
-            ctx.send([], 201, '学生未在活动中')
+        const { ctx, service } = this;
+        const { studentId, activityId } = ctx.request.query;
+        const res = await service.stdinfo.isInActivity(studentId, activityId);
+        if (res) {
+            ctx.send([], 200, '学生在活动中');
+        } else {
+            ctx.send([], 404, '学生未在活动中');
         }
     }
 
-    //查询学生信息
     async getStudentMsg() {
-        const { ctx, service } = this
-        const { studentId } = ctx.request.query
-        const res = await service.stdinfo.getStudentMsg(studentId)
-        console.log(res);
-        ctx.body = res
+        const { ctx, service } = this;
+        const { studentId } = ctx.request.query;
+        const res = await service.stdinfo.getStudentMsg(studentId);
+        ctx.body = res;
     }
 
-    //保存学生 openid（通过微信 code 换取）
     async saveOpenid() {
-        const { ctx, service } = this
-        const { code, studentId } = ctx.request.body
+        const { ctx, service } = this;
+        const { code, studentId } = ctx.request.body;
         if (!code || !studentId) {
-            return ctx.send([], 400, '缺少参数 code 或 studentId')
+            return ctx.send([], 400, '缺少参数 code 或 studentId');
         }
-        const res = await service.stdinfo.saveOpenid(code, studentId)
-        ctx.send([], res.code, res.msg)
+        const res = await service.stdinfo.saveOpenid(code, studentId);
+        ctx.send([], res.code, res.msg);
     }
 
-    //新增学生上传简历
     async uploadResume() {
-        const { ctx, service } = this
-        console.log(ctx.request);
-        
-        const { filePath, fileName, studentId } = ctx.request.body
-         // 验证参数是否存在
+        const { ctx, service } = this;
+        const { filePath, fileName, studentId } = ctx.request.body;
         if (!studentId) {
             return ctx.send([], 400, '学生ID不能为空');
         }
@@ -85,15 +71,9 @@ class StdinfoController extends Controller {
         if (!filePath) {
             return ctx.send([], 400, '文件路径不能为空');
         }
-        const res = await service.stdinfo.uploadResume(fileName, filePath, studentId)
-
-        if(res){
-            ctx.send([], 200, '上传成功')
-        }else{
-            ctx.send([], 201, '上传失败')
-        }
+        const res = await service.stdinfo.uploadResume(fileName, filePath, studentId);
+        ctx.send([], res.code, res.msg);
     }
-
 }
 
 module.exports = StdinfoController;
