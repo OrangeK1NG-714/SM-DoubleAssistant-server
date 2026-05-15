@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 
 module.exports = {
     get ctx() {
@@ -7,6 +8,9 @@ module.exports = {
     send(data = [], code = 200, msg = 'success', error = null) {
         this.body = { code, msg, data, error };
         this.status = code;
+    },
+    isValidObjectId(id) {
+        return mongoose.Types.ObjectId.isValid(id);
     },
     generateToken(uid, role) {
         const { secret, expiresIn } = this.app.config.jwt;

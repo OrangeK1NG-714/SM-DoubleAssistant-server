@@ -5,74 +5,141 @@ const Controller = require('egg').Controller;
 class StdinfoController extends Controller {
     async writeUserMsg() {
         const { ctx, service } = this;
-        const { name, gender, studentId, grade, classNum, phone, gpa, direction } = ctx.request.body;
-        const res = await service.stdinfo.writeUserMsg(name, gender, studentId, grade, classNum, phone, gpa, direction);
-        ctx.send([], res.code, res.msg);
+        try {
+            const { name, gender, studentId, grade, classNum, phone, gpa, direction } = ctx.request.body;
+            if (!studentId) {
+                return ctx.send([], 400, '缺少必填参数 studentId');
+            }
+            const res = await service.stdinfo.writeUserMsg(name, gender, studentId, grade, classNum, phone, gpa, direction);
+            ctx.send([], res.code, res.msg);
+        } catch (err) {
+            ctx.logger.error('writeUserMsg error:', err);
+            ctx.send([], 500, '服务器错误');
+        }
     }
 
     async updateUserMsg() {
         const { ctx, service } = this;
-        const { name, gender, studentId } = ctx.request.body;
-        const res = await service.stdinfo.updateUserMsg(name, gender, studentId);
-        ctx.send([], res.code, res.msg);
+        try {
+            const { name, gender, studentId } = ctx.request.body;
+            if (!studentId) {
+                return ctx.send([], 400, '缺少必填参数 studentId');
+            }
+            const res = await service.stdinfo.updateUserMsg(name, gender, studentId);
+            ctx.send([], res.code, res.msg);
+        } catch (err) {
+            ctx.logger.error('updateUserMsg error:', err);
+            ctx.send([], 500, '服务器错误');
+        }
     }
 
     async selectTeacher() {
         const { ctx, service } = this;
-        const { studentId, teacherId, order, isChose, activityId, createTime, subscribeTemplateId, subscribeStatus } = ctx.request.body;
-        const res = await service.stdinfo.selectTeacher(studentId, teacherId, order, isChose, activityId, createTime, subscribeTemplateId, subscribeStatus);
-        ctx.send([], res.code, res.msg);
+        try {
+            const { studentId, teacherId, order, isChose, activityId, createTime, subscribeTemplateId, subscribeStatus } = ctx.request.body;
+            if (!studentId || !teacherId || !activityId || order === undefined || order === null) {
+                return ctx.send([], 400, '缺少必填参数');
+            }
+            if (!ctx.isValidObjectId(activityId)) {
+                return ctx.send([], 400, 'activityId 格式不正确');
+            }
+            if (!createTime || isNaN(new Date(createTime).getTime())) {
+                return ctx.send([], 400, 'createTime 不合法');
+            }
+            const res = await service.stdinfo.selectTeacher(studentId, teacherId, order, isChose, activityId, createTime, subscribeTemplateId, subscribeStatus);
+            ctx.send([], res.code, res.msg);
+        } catch (err) {
+            ctx.logger.error('selectTeacher error:', err);
+            ctx.send([], 500, '服务器错误');
+        }
     }
 
     async getTeacherListInActivity() {
         const { ctx, service } = this;
-        const { activityId } = ctx.request.query;
-        const res = await service.stdinfo.getTeacherListInActivity(activityId);
-        ctx.body = res;
+        try {
+            const { activityId } = ctx.request.query;
+            if (!activityId) {
+                return ctx.send([], 400, '缺少参数 activityId');
+            }
+            const res = await service.stdinfo.getTeacherListInActivity(activityId);
+            ctx.send(res, 200, 'success');
+        } catch (err) {
+            ctx.logger.error('getTeacherListInActivity error:', err);
+            ctx.send([], 500, '服务器错误');
+        }
     }
 
     async isInActivity() {
         const { ctx, service } = this;
-        const { studentId, activityId } = ctx.request.query;
-        const res = await service.stdinfo.isInActivity(studentId, activityId);
-        if (res) {
-            ctx.send([], 200, '学生在活动中');
-        } else {
-            ctx.send([], 404, '学生未在活动中');
+        try {
+            const { studentId, activityId } = ctx.request.query;
+            if (!studentId || !activityId) {
+                return ctx.send([], 400, '缺少参数 studentId 或 activityId');
+            }
+            const res = await service.stdinfo.isInActivity(studentId, activityId);
+            if (res) {
+                ctx.send(res, 200, '学生在活动中');
+            } else {
+                ctx.send([], 404, '学生未在活动中');
+            }
+        } catch (err) {
+            ctx.logger.error('isInActivity error:', err);
+            ctx.send([], 500, '服务器错误');
         }
     }
 
     async getStudentMsg() {
         const { ctx, service } = this;
-        const { studentId } = ctx.request.query;
-        const res = await service.stdinfo.getStudentMsg(studentId);
-        ctx.body = res;
+        try {
+            const { studentId } = ctx.request.query;
+            if (!studentId) {
+                return ctx.send([], 400, '缺少参数 studentId');
+            }
+            const res = await service.stdinfo.getStudentMsg(studentId);
+            if (!res) {
+                return ctx.send([], 404, '学生信息不存在');
+            }
+            ctx.send(res, 200, 'success');
+        } catch (err) {
+            ctx.logger.error('getStudentMsg error:', err);
+            ctx.send([], 500, '服务器错误');
+        }
     }
 
     async saveOpenid() {
         const { ctx, service } = this;
-        const { code, studentId } = ctx.request.body;
-        if (!code || !studentId) {
-            return ctx.send([], 400, '缺少参数 code 或 studentId');
+        try {
+            const { code, studentId } = ctx.request.body;
+            if (!code || !studentId) {
+                return ctx.send([], 400, '缺少参数 code 或 studentId');
+            }
+            const res = await service.stdinfo.saveOpenid(code, studentId);
+            ctx.send([], res.code, res.msg);
+        } catch (err) {
+            ctx.logger.error('saveOpenid error:', err);
+            ctx.send([], 500, '服务器错误');
         }
-        const res = await service.stdinfo.saveOpenid(code, studentId);
-        ctx.send([], res.code, res.msg);
     }
 
     async uploadResume() {
         const { ctx, service } = this;
-        const { filePath, fileName, studentId } = ctx.request.body;
-        if (!studentId) {
-            return ctx.send([], 400, '学生ID不能为空');
+        try {
+            const { filePath, fileName, studentId } = ctx.request.body;
+            if (!studentId) {
+                return ctx.send([], 400, '学生ID不能为空');
+            }
+            if (!fileName) {
+                return ctx.send([], 400, '文件名称不能为空');
+            }
+            if (!filePath) {
+                return ctx.send([], 400, '文件路径不能为空');
+            }
+            const res = await service.stdinfo.uploadResume(fileName, filePath, studentId);
+            ctx.send([], res.code, res.msg);
+        } catch (err) {
+            ctx.logger.error('uploadResume error:', err);
+            ctx.send([], 500, '服务器错误');
         }
-        if (!fileName) {
-            return ctx.send([], 400, '文件名称不能为空');
-        }
-        if (!filePath) {
-            return ctx.send([], 400, '文件路径不能为空');
-        }
-        const res = await service.stdinfo.uploadResume(fileName, filePath, studentId);
-        ctx.send([], res.code, res.msg);
     }
 }
 

@@ -8,7 +8,7 @@ module.exports = app => {
   router.get('/resource/sse', app.middleware.jwt(), controller.sse.index); // 确保路径匹配
 
   //注册用户
-  router.post('/api/admin/register', app.middleware.jwt(), controller.userinfo.userRegister)
+  router.post('/api/admin/register', app.middleware.jwt({ requiredRole: 'admin' }), controller.userinfo.userRegister)
   //登录用户
   router.post('/api/user/login', controller.userinfo.userLogin)
   //刷新token
