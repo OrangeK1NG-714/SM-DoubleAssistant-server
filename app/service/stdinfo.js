@@ -33,19 +33,20 @@ class StdinfoService extends Service {
         return { code: 200, msg: '学生信息已更新', data: student };
     }
 
-    async selectTeacher(studentId, teacherId, order, isChose, activityId, createTime, subscribeTemplateId = '', subscribeStatus = '') {
+    async selectTeacher(studentId, teacherId, order, isChose, activityId, subscribeTemplateId = '', subscribeStatus = '') {
         const activity = await this.ctx.model.Activity.findById(activityId);
         if (!activity) {
             return { code: 404, msg: '活动不存在' };
         }
-        const now = new Date(createTime);
-        if (isNaN(now.getTime())) {
-            return { code: 400, msg: 'createTime 不是有效时间' };
-        }
+        const now = new Date();
         const startDate = new Date(activity.stdChooseStartDate);
         const endDate = new Date(activity.stdChooseEndDate);
         if (now < startDate || now > endDate) {
             return { code: 400, msg: '不在选老师时间内' };
+        }
+        const existing = await this.ctx.model.Choose.findOne({ studentId, activityId, order });
+        if (existing) {
+            return { code: 409, msg: `第${order}志愿已提交，请勿重复选择` };
         }
         const choose = await this.ctx.model.Choose.create({
             studentId,

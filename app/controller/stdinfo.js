@@ -6,9 +6,15 @@ class StdinfoController extends Controller {
     async writeUserMsg() {
         const { ctx, service } = this;
         try {
+            if (ctx.auth.role !== 'student' && ctx.auth.role !== 'admin') {
+                return ctx.send([], 403, '仅学生或管理员可操作');
+            }
             const { name, gender, studentId, grade, classNum, phone, gpa, direction } = ctx.request.body;
             if (!studentId) {
                 return ctx.send([], 400, '缺少必填参数 studentId');
+            }
+            if (ctx.auth.role === 'student' && ctx.auth.username !== studentId) {
+                return ctx.send([], 403, '无权操作他人信息');
             }
             const res = await service.stdinfo.writeUserMsg(name, gender, studentId, grade, classNum, phone, gpa, direction);
             ctx.send([], res.code, res.msg);
@@ -21,9 +27,15 @@ class StdinfoController extends Controller {
     async updateUserMsg() {
         const { ctx, service } = this;
         try {
+            if (ctx.auth.role !== 'student' && ctx.auth.role !== 'admin') {
+                return ctx.send([], 403, '仅学生或管理员可操作');
+            }
             const { name, gender, studentId } = ctx.request.body;
             if (!studentId) {
                 return ctx.send([], 400, '缺少必填参数 studentId');
+            }
+            if (ctx.auth.role === 'student' && ctx.auth.username !== studentId) {
+                return ctx.send([], 403, '无权操作他人信息');
             }
             const res = await service.stdinfo.updateUserMsg(name, gender, studentId);
             ctx.send([], res.code, res.msg);
@@ -36,17 +48,20 @@ class StdinfoController extends Controller {
     async selectTeacher() {
         const { ctx, service } = this;
         try {
-            const { studentId, teacherId, order, isChose, activityId, createTime, subscribeTemplateId, subscribeStatus } = ctx.request.body;
+            if (ctx.auth.role !== 'student' && ctx.auth.role !== 'admin') {
+                return ctx.send([], 403, '仅学生或管理员可操作');
+            }
+            const { studentId, teacherId, order, isChose, activityId, subscribeTemplateId, subscribeStatus } = ctx.request.body;
             if (!studentId || !teacherId || !activityId || order === undefined || order === null) {
                 return ctx.send([], 400, '缺少必填参数');
+            }
+            if (ctx.auth.role === 'student' && ctx.auth.username !== studentId) {
+                return ctx.send([], 403, '无权代替他人选课');
             }
             if (!ctx.isValidObjectId(activityId)) {
                 return ctx.send([], 400, 'activityId 格式不正确');
             }
-            if (!createTime || isNaN(new Date(createTime).getTime())) {
-                return ctx.send([], 400, 'createTime 不合法');
-            }
-            const res = await service.stdinfo.selectTeacher(studentId, teacherId, order, isChose, activityId, createTime, subscribeTemplateId, subscribeStatus);
+            const res = await service.stdinfo.selectTeacher(studentId, teacherId, order, isChose, activityId, subscribeTemplateId, subscribeStatus);
             ctx.send([], res.code, res.msg);
         } catch (err) {
             ctx.logger.error('selectTeacher error:', err);
@@ -109,9 +124,15 @@ class StdinfoController extends Controller {
     async saveOpenid() {
         const { ctx, service } = this;
         try {
+            if (ctx.auth.role !== 'student' && ctx.auth.role !== 'admin') {
+                return ctx.send([], 403, '仅学生或管理员可操作');
+            }
             const { code, studentId } = ctx.request.body;
             if (!code || !studentId) {
                 return ctx.send([], 400, '缺少参数 code 或 studentId');
+            }
+            if (ctx.auth.role === 'student' && ctx.auth.username !== studentId) {
+                return ctx.send([], 403, '无权操作他人信息');
             }
             const res = await service.stdinfo.saveOpenid(code, studentId);
             ctx.send([], res.code, res.msg);
@@ -124,9 +145,15 @@ class StdinfoController extends Controller {
     async uploadResume() {
         const { ctx, service } = this;
         try {
+            if (ctx.auth.role !== 'student' && ctx.auth.role !== 'admin') {
+                return ctx.send([], 403, '仅学生或管理员可操作');
+            }
             const { filePath, fileName, studentId } = ctx.request.body;
             if (!studentId) {
                 return ctx.send([], 400, '学生ID不能为空');
+            }
+            if (ctx.auth.role === 'student' && ctx.auth.username !== studentId) {
+                return ctx.send([], 403, '无权操作他人信息');
             }
             if (!fileName) {
                 return ctx.send([], 400, '文件名称不能为空');

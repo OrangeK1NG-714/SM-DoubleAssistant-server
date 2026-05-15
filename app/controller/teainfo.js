@@ -17,9 +17,15 @@ class TeainfoController extends Controller {
     async updateChoose() {
         const { ctx, service } = this;
         try {
+            if (ctx.auth.role !== 'teacher' && ctx.auth.role !== 'admin') {
+                return ctx.send([], 403, '仅导师或管理员可操作');
+            }
             const { studentId, teacherId, activityId } = ctx.request.body;
             if (!studentId || !teacherId || !activityId) {
                 return ctx.send([], 400, '缺少必填参数 studentId/teacherId/activityId');
+            }
+            if (ctx.auth.role === 'teacher' && ctx.auth.username !== teacherId) {
+                return ctx.send([], 403, '无权操作他人选择');
             }
             const res = await service.teainfo.updateChoose(studentId, teacherId, activityId);
             ctx.send([], res.code, res.msg);
@@ -32,9 +38,15 @@ class TeainfoController extends Controller {
     async selectStudent() {
         const { ctx, service } = this;
         try {
+            if (ctx.auth.role !== 'teacher' && ctx.auth.role !== 'admin') {
+                return ctx.send([], 403, '仅导师或管理员可操作');
+            }
             const { studentId, teacherId, activityId, data, order } = ctx.request.body;
             if (!studentId || !teacherId || !activityId || !data || order === undefined || order === null) {
                 return ctx.send([], 400, '缺少必填参数');
+            }
+            if (ctx.auth.role === 'teacher' && ctx.auth.username !== teacherId) {
+                return ctx.send([], 403, '无权代替他人选择学生');
             }
             const res = await service.teainfo.selectStudent(studentId, teacherId, activityId, data, order);
             ctx.send([], res.code, res.msg);
@@ -47,9 +59,15 @@ class TeainfoController extends Controller {
     async cancelSelect() {
         const { ctx, service } = this;
         try {
+            if (ctx.auth.role !== 'teacher' && ctx.auth.role !== 'admin') {
+                return ctx.send([], 403, '仅导师或管理员可操作');
+            }
             const { studentId, teacherId, activityId } = ctx.request.query;
             if (!studentId || !teacherId || !activityId) {
                 return ctx.send([], 400, '缺少必填参数 studentId/teacherId/activityId');
+            }
+            if (ctx.auth.role === 'teacher' && ctx.auth.username !== teacherId) {
+                return ctx.send([], 403, '无权操作他人选择');
             }
             const res = await service.teainfo.cancelSelect(studentId, teacherId, activityId);
             ctx.send([], res.code, res.msg);
