@@ -83,6 +83,43 @@ class StdinfoService extends Service {
         return await ctx.model.UserInActivity.find({ activityId, teacherId: { $exists: true } });
     }
 
+    async getTeachersForActivity(activityId) {
+        const { ctx } = this;
+        const activityTeachers = await ctx.model.UserInActivity.find({ activityId, teacherId: { $exists: true } });
+        const teacherIds = activityTeachers.map(t => t.teacherId);
+        if (teacherIds.length === 0) return [];
+
+        const [teachers, chooseCounts] = await Promise.all([
+            ctx.model.Teacher.find({ teacherId: { $in: teacherIds } }),
+            ctx.model.Choose.aggregate([
+                { $match: { activityId, teacherId: { $in: teacherIds } } },
+                { $group: {
+                    _id: '$teacherId',
+                    chooseCount: { $sum: 1 },
+                    selectedCount: { $sum: { $cond: ['$isChose', 1, 0] } },
+                } },
+            ]),
+        ]);
+
+        const teacherMap = new Map(teachers.map(t => [t.teacherId, t]));
+        const countMap = new Map(chooseCounts.map(c => [c._id, c]));
+        const maxSelectMap = new Map(activityTeachers.map(t => [t.teacherId, t.maxSelectNum || 0]));
+
+        return teacherIds.map(id => {
+            const teacher = teacherMap.get(id) || {};
+            const counts = countMap.get(id) || { chooseCount: 0, selectedCount: 0 };
+            return {
+                teacherId: id,
+                name: teacher.name || '',
+                msg: teacher.msg || '',
+                teacherType: teacher.teacherType || '',
+                maxSelectNum: maxSelectMap.get(id) || 0,
+                chooseCount: counts.chooseCount,
+                selectedCount: counts.selectedCount,
+            };
+        });
+    }
+
     async isInActivity(studentId, activityId) {
         const { ctx } = this;
         return await ctx.model.UserInActivity.findOne({ studentId, activityId });

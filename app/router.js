@@ -67,7 +67,9 @@ module.exports = app => {
   //把对应的学生添加到活动中去
   // router.post('/api/admin/addStudentToActivity', app.middleware.jwt({ requiredRole: 'admin' }), controller.admin.addStudentToActivity)
 
-  //查询某活动的所有老师
+  //查询某活动的所有老师（聚合：老师详情+选择计数）
+  router.get('/api/student/getTeachersForActivity', app.middleware.jwt(), controller.stdinfo.getTeachersForActivity)
+  //查询某活动的所有老师（原始）
   router.get('/api/student/getTeacherList', app.middleware.jwt(), controller.stdinfo.getTeacherListInActivity)
   //查询某学生是否在活动中
   router.get('/api/student/isInActivity', app.middleware.jwt(), controller.stdinfo.isInActivity)

@@ -69,6 +69,21 @@ class StdinfoController extends Controller {
         }
     }
 
+    async getTeachersForActivity() {
+        const { ctx, service } = this;
+        try {
+            const { activityId } = ctx.request.query;
+            if (!activityId) {
+                return ctx.send([], 400, '缺少参数 activityId');
+            }
+            const res = await service.stdinfo.getTeachersForActivity(activityId);
+            ctx.send(res, 200, 'success');
+        } catch (err) {
+            ctx.logger.error('getTeachersForActivity error:', err);
+            ctx.send([], 500, '服务器错误');
+        }
+    }
+
     async getTeacherListInActivity() {
         const { ctx, service } = this;
         try {
