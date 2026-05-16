@@ -84,8 +84,10 @@ module.exports = appInfo => {
       const allowList = [
         'http://localhost:5173',
         'http://localhost:3000',
+        'http://localhost:9000',
         'http://127.0.0.1:5173',
         'http://127.0.0.1:3000',
+        'http://127.0.0.1:9000',
         'https://richardq.tech',
       ];
       const requestOrigin = ctx.get('origin');
