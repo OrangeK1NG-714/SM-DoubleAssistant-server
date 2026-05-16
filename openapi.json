@@ -1,0 +1,1463 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "数媒双选系统 API",
+    "description": "浙江科技大学数字媒体技术专业师生双向选择系统后端接口文档。支持学生选导师、导师选学生、管理员管理活动等功能。",
+    "version": "1.0.0",
+    "contact": {
+      "name": "SM-DoubleAssistant"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:7001",
+      "description": "本地开发服务器"
+    }
+  ],
+  "tags": [
+    { "name": "认证", "description": "用户登录、注册、Token刷新" },
+    { "name": "学生", "description": "学生信息管理、选择导师、简历上传" },
+    { "name": "导师", "description": "导师信息查询、选择学生" },
+    { "name": "活动", "description": "双选活动管理" },
+    { "name": "志愿", "description": "选择志愿查询与管理" },
+    { "name": "管理员-用户", "description": "管理员用户管理" },
+    { "name": "管理员-活动用户", "description": "管理员管理活动中的用户" },
+    { "name": "AI推荐", "description": "AI智能推荐导师" },
+    { "name": "SSE", "description": "Server-Sent Events 实时推送" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT访问令牌，登录后获取"
+      }
+    },
+    "schemas": {
+      "BaseResponse": {
+        "type": "object",
+        "properties": {
+          "data": { "description": "响应数据" },
+          "code": { "type": "integer", "description": "状态码" },
+          "msg": { "type": "string", "description": "提示信息" }
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string", "description": "MongoDB ObjectId" },
+          "username": { "type": "string", "description": "用户名（6-10位数字）" },
+          "role": { "type": "string", "enum": ["admin", "student", "teacher"], "description": "用户角色" }
+        }
+      },
+      "Student": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "studentId": { "type": "string", "description": "学号" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string", "description": "姓名" },
+              "gender": { "type": "string", "description": "性别" },
+              "grade": { "type": "string", "description": "年级" },
+              "classNum": { "type": "string", "description": "班级" },
+              "phone": { "type": "string", "description": "手机号" },
+              "gpa": { "type": "number", "description": "绩点" },
+              "direction": { "type": "string", "description": "研究方向" }
+            }
+          },
+          "mentor": { "type": "string", "description": "导师" },
+          "openid": { "type": "string", "description": "微信openid" }
+        }
+      },
+      "Teacher": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "name": { "type": "string", "description": "教师姓名" },
+          "teacherId": { "type": "string", "description": "教师工号" },
+          "msg": { "type": "string", "description": "教师简介" },
+          "teacherType": { "type": "string", "description": "教师类型" },
+          "resumeName": { "type": "string", "description": "简历文件名" },
+          "resumePath": { "type": "string", "description": "简历文件路径" }
+        }
+      },
+      "Activity": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "name": { "type": "string", "description": "活动名称" },
+          "description": { "type": "string", "description": "活动描述" },
+          "startDate": { "type": "string", "format": "date-time", "description": "活动开始时间" },
+          "endDate": { "type": "string", "format": "date-time", "description": "活动结束时间" },
+          "firstChooseStartDate": { "type": "string", "format": "date-time", "description": "第一轮选择开始" },
+          "firstChooseEndDate": { "type": "string", "format": "date-time", "description": "第一轮选择结束" },
+          "secondChooseStartDate": { "type": "string", "format": "date-time", "description": "第二轮选择开始" },
+          "secondChooseEndDate": { "type": "string", "format": "date-time", "description": "第二轮选择结束" },
+          "thirdChooseStartDate": { "type": "string", "format": "date-time", "description": "第三轮选择开始" },
+          "thirdChooseEndDate": { "type": "string", "format": "date-time", "description": "第三轮选择结束" },
+          "stdChooseStartDate": { "type": "string", "format": "date-time", "description": "学生选择开始" },
+          "stdChooseEndDate": { "type": "string", "format": "date-time", "description": "学生选择结束" },
+          "subscribeSent": { "type": "boolean", "description": "是否已发送订阅消息" }
+        }
+      },
+      "Choose": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "studentId": { "type": "string", "description": "学号" },
+          "teacherId": { "type": "string", "description": "教师工号" },
+          "order": { "type": "integer", "description": "志愿序号" },
+          "isChose": { "type": "boolean", "description": "是否被选中" },
+          "activityId": { "type": "string", "description": "活动ID" },
+          "createTime": { "type": "string", "format": "date-time", "description": "创建时间" },
+          "subscribeTemplateId": { "type": "string", "description": "订阅模板ID" },
+          "subscribeStatus": { "type": "string", "description": "订阅状态" }
+        }
+      },
+      "Final": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "activityId": { "type": "string", "description": "活动ID" },
+          "studentId": { "type": "string", "description": "学号" },
+          "teacherId": { "type": "string", "description": "教师工号" },
+          "data": { "type": "object", "description": "学生信息数据" },
+          "order": { "type": "integer", "description": "志愿序号" }
+        }
+      },
+      "UserInActivity": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "activityId": { "type": "string", "description": "活动ID" },
+          "teacherId": { "type": "string", "description": "教师工号" },
+          "studentId": { "type": "string", "description": "学号" },
+          "maxSelectNum": { "type": "integer", "description": "最大可选学生数" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/user/login": {
+      "post": {
+        "tags": ["认证"],
+        "summary": "用户登录",
+        "description": "使用用户名密码登录，返回 accessToken 和 refreshToken",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["username", "password"],
+                "properties": {
+                  "username": { "type": "string", "description": "用户名（6-10位数字）", "example": "2021001" },
+                  "password": { "type": "string", "description": "密码（6-20位字母和数字）", "example": "abc123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "登录成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "accessToken": { "type": "string", "description": "访问令牌" },
+                        "refreshToken": { "type": "string", "description": "刷新令牌" },
+                        "role": { "type": "string", "description": "用户角色" },
+                        "username": { "type": "string", "description": "用户名" }
+                      }
+                    },
+                    "code": { "type": "integer", "example": 200 },
+                    "msg": { "type": "string", "example": "登录成功" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/user/refreshToken": {
+      "post": {
+        "tags": ["认证"],
+        "summary": "刷新Token",
+        "description": "使用 refreshToken 获取新的 accessToken",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["refreshToken"],
+                "properties": {
+                  "refreshToken": { "type": "string", "description": "刷新令牌" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "刷新成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "accessToken": { "type": "string", "description": "新的访问令牌" }
+                      }
+                    },
+                    "code": { "type": "integer", "example": 200 },
+                    "msg": { "type": "string", "example": "token刷新成功" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/register": {
+      "post": {
+        "tags": ["认证"],
+        "summary": "注册用户（管理员）",
+        "description": "管理员注册新用户，支持学生和教师角色。教师注册必须填写姓名。",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["username", "password", "role"],
+                "properties": {
+                  "username": { "type": "string", "description": "用户名（6-10位数字）", "example": "2021001" },
+                  "password": { "type": "string", "description": "密码（6-20位字母和数字）", "example": "abc123" },
+                  "role": { "type": "string", "enum": ["student", "teacher"], "description": "用户角色" },
+                  "name": { "type": "string", "description": "教师姓名（教师角色必填）" },
+                  "teacherType": { "type": "string", "description": "教师类型" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "注册成功",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/user/detail": {
+      "get": {
+        "tags": ["认证"],
+        "summary": "获取用户详情",
+        "description": "根据用户名和角色查询用户详细信息（学生或教师资料）",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "username", "in": "query", "required": true, "schema": { "type": "string" }, "description": "用户名" },
+          { "name": "role", "in": "query", "required": true, "schema": { "type": "string", "enum": ["student", "teacher", "admin"] }, "description": "用户角色" }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/user/writeMsg": {
+      "post": {
+        "tags": ["学生"],
+        "summary": "写入学生信息",
+        "description": "创建或更新学生个人信息",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["studentId"],
+                "properties": {
+                  "studentId": { "type": "string", "description": "学号" },
+                  "name": { "type": "string", "description": "姓名" },
+                  "gender": { "type": "string", "description": "性别" },
+                  "grade": { "type": "string", "description": "年级" },
+                  "classNum": { "type": "string", "description": "班级" },
+                  "phone": { "type": "string", "description": "手机号" },
+                  "gpa": { "type": "number", "description": "绩点" },
+                  "direction": { "type": "string", "description": "研究方向" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "操作成功",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/user/updateMsg": {
+      "put": {
+        "tags": ["学生"],
+        "summary": "更新学生信息",
+        "description": "更新学生姓名和性别",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["studentId"],
+                "properties": {
+                  "studentId": { "type": "string", "description": "学号" },
+                  "name": { "type": "string", "description": "姓名" },
+                  "gender": { "type": "string", "description": "性别" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "更新成功",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/student/getMsg": {
+      "get": {
+        "tags": ["学生"],
+        "summary": "查询学生信息",
+        "description": "根据学号查询学生信息",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "studentId", "in": "query", "required": true, "schema": { "type": "string" }, "description": "学号" }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "$ref": "#/components/schemas/Student" },
+                    "code": { "type": "integer", "example": 200 },
+                    "msg": { "type": "string", "example": "success" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/student/selectTeacher": {
+      "post": {
+        "tags": ["学生"],
+        "summary": "学生选择导师",
+        "description": "学生提交志愿选择导师",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["studentId", "teacherId", "order", "activityId", "createTime"],
+                "properties": {
+                  "studentId": { "type": "string", "description": "学号" },
+                  "teacherId": { "type": "string", "description": "教师工号" },
+                  "order": { "type": "integer", "description": "志愿序号（1/2/3）" },
+                  "isChose": { "type": "boolean", "description": "是否被选中", "default": false },
+                  "activityId": { "type": "string", "description": "活动ID（ObjectId）" },
+                  "createTime": { "type": "string", "format": "date-time", "description": "创建时间" },
+                  "subscribeTemplateId": { "type": "string", "description": "微信订阅模板ID" },
+                  "subscribeStatus": { "type": "string", "description": "订阅状态" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "选择成功",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/student/getTeacherList": {
+      "get": {
+        "tags": ["学生"],
+        "summary": "获取活动中的导师列表",
+        "description": "查询某活动中所有可选导师",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "activityId", "in": "query", "required": true, "schema": { "type": "string" }, "description": "活动ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/Teacher" } },
+                    "code": { "type": "integer", "example": 200 },
+                    "msg": { "type": "string", "example": "success" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/student/isInActivity": {
+      "get": {
+        "tags": ["学生"],
+        "summary": "查询学生是否在活动中",
+        "description": "检查某学生是否已加入某活动",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "studentId", "in": "query", "required": true, "schema": { "type": "string" }, "description": "学号" },
+          { "name": "activityId", "in": "query", "required": true, "schema": { "type": "string" }, "description": "活动ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "学生在活动中",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
+          },
+          "404": {
+            "description": "学生未在活动中"
+          }
+        }
+      }
+    },
+    "/api/student/saveOpenid": {
+      "post": {
+        "tags": ["学生"],
+        "summary": "保存学生微信OpenID",
+        "description": "通过微信登录code换取openid并保存到学生记录",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["code", "studentId"],
+                "properties": {
+                  "code": { "type": "string", "description": "微信登录code" },
+                  "studentId": { "type": "string", "description": "学号" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "保存成功",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/student/uploadResume": {
+      "post": {
+        "tags": ["学生"],
+        "summary": "上传学生简历",
+        "description": "上传学生简历的元数据信息",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["studentId", "fileName", "filePath"],
+                "properties": {
+                  "studentId": { "type": "string", "description": "学号" },
+                  "fileName": { "type": "string", "description": "文件名" },
+                  "filePath": { "type": "string", "description": "文件路径" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "上传成功",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/student/recommendTeachers": {
+      "get": {
+        "tags": ["AI推荐"],
+        "summary": "AI推荐导师",
+        "description": "基于学生信息智能推荐Top3匹配导师，包含匹配分、推荐理由、志愿位建议",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "studentId", "in": "query", "required": true, "schema": { "type": "string" }, "description": "学号" },
+          { "name": "activityId", "in": "query", "required": true, "schema": { "type": "string" }, "description": "活动ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "推荐成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "teacherId": { "type": "string" },
+                          "name": { "type": "string" },
+                          "score": { "type": "number", "description": "匹配分数" },
+                          "reason": { "type": "string", "description": "推荐理由" },
+                          "slot": { "type": "string", "description": "志愿位建议（第一/第二/第三志愿）" }
+                        }
+                      }
+                    },
+                    "code": { "type": "integer", "example": 200 },
+                    "msg": { "type": "string", "example": "AI 推荐成功" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/teacher/detail": {
+      "get": {
+        "tags": ["导师"],
+        "summary": "获取所有导师信息",
+        "description": "查询系统中所有导师的详细信息",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "查询成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/Teacher" } },
+                    "code": { "type": "integer", "example": 200 },
+                    "msg": { "type": "string", "example": "success" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/student/updateTeacher": {
+      "put": {
+        "tags": ["导师"],
+        "summary": "导师确认选择学生",
+        "description": "导师修改学生的Choose记录中的isChose状态",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["studentId", "teacherId", "activityId"],
+                "properties": {
+                  "studentId": { "type": "string", "description": "学号" },
+                  "teacherId": { "type": "string", "description": "教师工号" },
+                  "activityId": { "type": "string", "description": "活动ID" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "操作成功",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/teacher/selectStudent": {
+      "post": {
+        "tags": ["导师"],
+        "summary": "导师选择学生（最终选择）",
+        "description": "导师将学生添加到Final表中，确认最终选择",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["studentId", "teacherId", "activityId", "data", "order"],
+                "properties": {
+                  "studentId": { "type": "string", "description": "学号" },
+                  "teacherId": { "type": "string", "description": "教师工号" },
+                  "activityId": { "type": "string", "description": "活动ID" },
+                  "data": { "type": "object", "description": "学生信息数据" },
+                  "order": { "type": "integer", "description": "志愿序号" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "选择成功",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/teacher/cancelSelect": {
+      "delete": {
+        "tags": ["导师"],
+        "summary": "导师取消选择学生",
+        "description": "导师取消对某学生的最终选择",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "studentId", "in": "query", "required": true, "schema": { "type": "string" }, "description": "学号" },
+          { "name": "teacherId", "in": "query", "required": true, "schema": { "type": "string" }, "description": "教师工号" },
+          { "name": "activityId", "in": "query", "required": true, "schema": { "type": "string" }, "description": "活动ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "取消成功",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/teacher/getSelectList": {
+      "get": {
+        "tags": ["导师"],
+        "summary": "查看导师的最终选择列表",
+        "description": "查询Final表中某位导师的选择情况",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "teacherId", "in": "query", "schema": { "type": "string" }, "description": "教师工号" },
+          { "name": "activityId", "in": "query", "schema": { "type": "string" }, "description": "活动ID" },
+          { "name": "studentId", "in": "query", "schema": { "type": "string" }, "description": "学号（可选筛选）" }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/Final" } },
+                    "code": { "type": "integer", "example": 200 },
+                    "msg": { "type": "string", "example": "success" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/teacher/isInActivity": {
+      "get": {
+        "tags": ["导师"],
+        "summary": "查询导师是否在活动中",
+        "description": "检查某导师是否已加入某活动",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "teacherId", "in": "query", "required": true, "schema": { "type": "string" }, "description": "教师工号" },
+          { "name": "activityId", "in": "query", "required": true, "schema": { "type": "string" }, "description": "活动ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "导师在活动中",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
+          },
+          "404": {
+            "description": "导师未在活动中"
+          }
+        }
+      }
+    },
+    "/api/user/getChooseList": {
+      "get": {
+        "tags": ["志愿"],
+        "summary": "查询活动所有志愿",
+        "description": "根据活动ID查询所有学生的选择情况",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "activityId", "in": "query", "required": true, "schema": { "type": "string" }, "description": "活动ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/Choose" } },
+                    "code": { "type": "integer", "example": 200 },
+                    "msg": { "type": "string", "example": "success" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/user/getChooseDetail": {
+      "get": {
+        "tags": ["志愿"],
+        "summary": "查询学生志愿详情",
+        "description": "根据活动ID和学号查询某学生的选择情况",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "activityId", "in": "query", "required": true, "schema": { "type": "string" }, "description": "活动ID" },
+          { "name": "studentId", "in": "query", "required": true, "schema": { "type": "string" }, "description": "学号" }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/Choose" } },
+                    "code": { "type": "integer", "example": 200 },
+                    "msg": { "type": "string", "example": "success" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/user/getChooseCount": {
+      "get": {
+        "tags": ["志愿"],
+        "summary": "查询已选学生数",
+        "description": "查询某活动中某导师被选择的学生数量",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "teacherId", "in": "query", "required": true, "schema": { "type": "string" }, "description": "教师工号" },
+          { "name": "activityId", "in": "query", "required": true, "schema": { "type": "string" }, "description": "活动ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "type": "integer", "description": "已选学生数量" },
+                    "code": { "type": "integer", "example": 200 },
+                    "msg": { "type": "string", "example": "success" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/user/getMaxSelectNum": {
+      "get": {
+        "tags": ["志愿"],
+        "summary": "查询导师最大可选学生数",
+        "description": "查询某活动中某位导师的最大可选学生数配置",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "activityId", "in": "query", "required": true, "schema": { "type": "string" }, "description": "活动ID" },
+          { "name": "teacherId", "in": "query", "required": true, "schema": { "type": "string" }, "description": "教师工号" }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "$ref": "#/components/schemas/UserInActivity" },
+                    "code": { "type": "integer", "example": 200 },
+                    "msg": { "type": "string", "example": "success" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/addActivity": {
+      "post": {
+        "tags": ["活动"],
+        "summary": "新增活动（管理员）",
+        "description": "管理员创建双选活动，包含多轮选择的时间配置",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "description", "startDate", "endDate"],
+                "properties": {
+                  "name": { "type": "string", "description": "活动名称" },
+                  "description": { "type": "string", "description": "活动描述" },
+                  "startDate": { "type": "string", "format": "date-time", "description": "活动开始时间" },
+                  "endDate": { "type": "string", "format": "date-time", "description": "活动结束时间" },
+                  "firstChooseStartDate": { "type": "string", "format": "date-time", "description": "第一轮选择开始" },
+                  "firstChooseEndDate": { "type": "string", "format": "date-time", "description": "第一轮选择结束" },
+                  "secondChooseStartDate": { "type": "string", "format": "date-time", "description": "第二轮选择开始" },
+                  "secondChooseEndDate": { "type": "string", "format": "date-time", "description": "第二轮选择结束" },
+                  "thirdChooseStartDate": { "type": "string", "format": "date-time", "description": "第三轮选择开始" },
+                  "thirdChooseEndDate": { "type": "string", "format": "date-time", "description": "第三轮选择结束" },
+                  "stdChooseStartDate": { "type": "string", "format": "date-time", "description": "学生选择开始" },
+                  "stdChooseEndDate": { "type": "string", "format": "date-time", "description": "学生选择结束" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "创建成功",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/admin/getActivityList": {
+      "get": {
+        "tags": ["活动"],
+        "summary": "获取活动列表",
+        "description": "查询所有双选活动",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "查询成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/Activity" } },
+                    "code": { "type": "integer", "example": 200 },
+                    "msg": { "type": "string", "example": "success" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/getActivityDetail": {
+      "get": {
+        "tags": ["活动"],
+        "summary": "获取活动详情",
+        "description": "根据活动ID查询活动详情",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "query", "required": true, "schema": { "type": "string" }, "description": "活动ID（ObjectId）" }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "$ref": "#/components/schemas/Activity" },
+                    "code": { "type": "integer", "example": 200 },
+                    "msg": { "type": "string", "example": "success" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/updateActivity": {
+      "put": {
+        "tags": ["活动"],
+        "summary": "修改活动（管理员）",
+        "description": "管理员更新双选活动信息",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["_id"],
+                "properties": {
+                  "_id": { "type": "string", "description": "活动ID（ObjectId）" },
+                  "name": { "type": "string", "description": "活动名称" },
+                  "description": { "type": "string", "description": "活动描述" },
+                  "startDate": { "type": "string", "format": "date-time" },
+                  "endDate": { "type": "string", "format": "date-time" },
+                  "firstChooseStartDate": { "type": "string", "format": "date-time" },
+                  "firstChooseEndDate": { "type": "string", "format": "date-time" },
+                  "secondChooseStartDate": { "type": "string", "format": "date-time" },
+                  "secondChooseEndDate": { "type": "string", "format": "date-time" },
+                  "thirdChooseStartDate": { "type": "string", "format": "date-time" },
+                  "thirdChooseEndDate": { "type": "string", "format": "date-time" },
+                  "stdChooseStartDate": { "type": "string", "format": "date-time" },
+                  "stdChooseEndDate": { "type": "string", "format": "date-time" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "更新成功",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/admin/deleteActivity": {
+      "delete": {
+        "tags": ["活动"],
+        "summary": "删除活动（管理员）",
+        "description": "管理员删除双选活动",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["id"],
+                "properties": {
+                  "id": { "type": "string", "description": "活动ID（ObjectId）" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "删除成功",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/admin/addTeacherToActivity": {
+      "post": {
+        "tags": ["管理员-活动用户"],
+        "summary": "添加用户到活动",
+        "description": "管理员将教师或学生添加到双选活动中。teacherId和studentId至少提供一个。",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["activityId"],
+                "properties": {
+                  "activityId": { "type": "string", "description": "活动ID" },
+                  "teacherId": { "type": "string", "description": "教师工号（与studentId二选一）" },
+                  "studentId": { "type": "string", "description": "学号（与teacherId二选一）" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "添加成功",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/admin/getUserList": {
+      "get": {
+        "tags": ["管理员-用户"],
+        "summary": "查询所有用户（管理员）",
+        "description": "管理员查询系统中所有注册用户",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "查询成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/User" } },
+                    "code": { "type": "integer", "example": 200 },
+                    "msg": { "type": "string", "example": "success" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/getUserInfo": {
+      "get": {
+        "tags": ["管理员-用户"],
+        "summary": "搜索用户信息（管理员）",
+        "description": "根据用户名和角色搜索用户",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "username", "in": "query", "schema": { "type": "string" }, "description": "用户名（可选）" },
+          { "name": "role", "in": "query", "schema": { "type": "string", "enum": ["student", "teacher", "admin"] }, "description": "用户角色（可选）" }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/admin/resetPassword": {
+      "post": {
+        "tags": ["管理员-用户"],
+        "summary": "重置用户密码（管理员）",
+        "description": "管理员重置指定用户的密码",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["username", "password"],
+                "properties": {
+                  "username": { "type": "string", "description": "用户名（6-10位数字）" },
+                  "password": { "type": "string", "description": "新密码（6-20位字母和数字）" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "重置成功",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/admin/resetSelectedPassword": {
+      "post": {
+        "tags": ["管理员-用户"],
+        "summary": "批量重置用户密码（管理员）",
+        "description": "管理员批量重置选中用户的密码",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["selectedUsers", "password"],
+                "properties": {
+                  "selectedUsers": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "用户名数组"
+                  },
+                  "password": { "type": "string", "description": "新密码（至少6位）" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "重置成功",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/admin/getUserListInActivity": {
+      "get": {
+        "tags": ["管理员-活动用户"],
+        "summary": "查询活动中的用户（管理员）",
+        "description": "查询某活动中的所有用户，支持按用户名和角色筛选",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "activityId", "in": "query", "required": true, "schema": { "type": "string" }, "description": "活动ID" },
+          { "name": "username", "in": "query", "schema": { "type": "string" }, "description": "用户名筛选（可选）" },
+          { "name": "role", "in": "query", "schema": { "type": "string" }, "description": "角色筛选（可选）" }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/admin/deleteUserInActivity": {
+      "delete": {
+        "tags": ["管理员-活动用户"],
+        "summary": "从活动中删除用户（管理员）",
+        "description": "管理员从双选活动中移除用户",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["_id"],
+                "properties": {
+                  "_id": { "type": "string", "description": "UserInActivity记录ID（ObjectId）" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "删除成功",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/admin/getSelectedList": {
+      "get": {
+        "tags": ["志愿"],
+        "summary": "查询选择志愿列表（管理员）",
+        "description": "管理员查询Choose表记录，可按学号和活动ID筛选",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "studentId", "in": "query", "schema": { "type": "string" }, "description": "学号（可选）" },
+          { "name": "activityId", "in": "query", "schema": { "type": "string" }, "description": "活动ID（可选）" }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/Choose" } },
+                    "code": { "type": "integer", "example": 200 },
+                    "msg": { "type": "string", "example": "success" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/deleteSelected": {
+      "delete": {
+        "tags": ["志愿"],
+        "summary": "删除选择志愿（管理员）",
+        "description": "管理员删除某条Choose记录",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["_id"],
+                "properties": {
+                  "_id": { "type": "string", "description": "Choose记录ID（ObjectId）" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "删除成功",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/admin/getFinalList": {
+      "get": {
+        "tags": ["志愿"],
+        "summary": "查询最终志愿列表（管理员）",
+        "description": "管理员查询Final表记录，可按学号、教师工号和活动ID筛选",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "studentId", "in": "query", "schema": { "type": "string" }, "description": "学号（可选）" },
+          { "name": "teacherId", "in": "query", "schema": { "type": "string" }, "description": "教师工号（可选）" },
+          { "name": "activityId", "in": "query", "schema": { "type": "string" }, "description": "活动ID（可选）" }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/Final" } },
+                    "code": { "type": "integer", "example": 200 },
+                    "msg": { "type": "string", "example": "success" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/getTeacherListInActivity": {
+      "get": {
+        "tags": ["管理员-活动用户"],
+        "summary": "查询活动中的导师列表（管理员）",
+        "description": "管理员查询某活动中所有导师及其详细信息",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "activityId", "in": "query", "required": true, "schema": { "type": "string" }, "description": "活动ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/admin/getStudentListInActivity": {
+      "get": {
+        "tags": ["管理员-活动用户"],
+        "summary": "查询活动中的学生列表（管理员）",
+        "description": "管理员查询某活动中所有学生及其详细信息",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "activityId", "in": "query", "required": true, "schema": { "type": "string" }, "description": "活动ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/admin/resetVolunteer": {
+      "delete": {
+        "tags": ["志愿"],
+        "summary": "重置学生志愿（管理员）",
+        "description": "管理员重置某学生在某活动中的所有志愿选择",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["activityId", "studentId"],
+                "properties": {
+                  "activityId": { "type": "string", "description": "活动ID" },
+                  "studentId": { "type": "string", "description": "学号" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "重置成功",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/admin/configMaxSelectNum": {
+      "put": {
+        "tags": ["管理员-活动用户"],
+        "summary": "配置导师最大可选学生数（管理员）",
+        "description": "管理员设置某活动中某导师的最大可选学生数",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["activityId", "teacherId", "maxSelectNum"],
+                "properties": {
+                  "activityId": { "type": "string", "description": "活动ID" },
+                  "teacherId": { "type": "string", "description": "教师工号" },
+                  "maxSelectNum": { "type": "integer", "minimum": 1, "description": "最大可选学生数" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "配置成功",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/admin/getFinalChoose": {
+      "get": {
+        "tags": ["志愿"],
+        "summary": "查询学生最终志愿",
+        "description": "查询某学生在某活动中的最终录取结果",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "studentId", "in": "query", "required": true, "schema": { "type": "string" }, "description": "学号" },
+          { "name": "activityId", "in": "query", "required": true, "schema": { "type": "string" }, "description": "活动ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "$ref": "#/components/schemas/Final" },
+                    "code": { "type": "integer", "example": 200 },
+                    "msg": { "type": "string", "example": "success" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/teacher/uploadTeacherResume": {
+      "post": {
+        "tags": ["导师"],
+        "summary": "上传教师简历（管理员）",
+        "description": "管理员上传教师简历文件，支持PDF/DOC/DOCX/JPG/PNG格式，最大50MB",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["teacherId", "file"],
+                "properties": {
+                  "teacherId": { "type": "string", "description": "教师工号" },
+                  "resumeName": { "type": "string", "description": "简历文件名（可选，默认取上传文件名）" },
+                  "file": { "type": "string", "format": "binary", "description": "简历文件" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "上传成功",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/teacher/getTeacherResume": {
+      "get": {
+        "tags": ["导师"],
+        "summary": "下载教师简历",
+        "description": "根据教师工号下载教师简历文件",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "teacherId", "in": "query", "required": true, "schema": { "type": "string" }, "description": "教师工号" }
+        ],
+        "responses": {
+          "200": {
+            "description": "文件下载",
+            "content": {
+              "application/octet-stream": {
+                "schema": { "type": "string", "format": "binary" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/resource/sse": {
+      "get": {
+        "tags": ["SSE"],
+        "summary": "SSE实时推送",
+        "description": "Server-Sent Events 流式推送接口，需通过query传递JWT令牌。发送10条消息后关闭，每15秒心跳。",
+        "parameters": [
+          { "name": "Authorization", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Bearer JWT令牌" }
+        ],
+        "responses": {
+          "200": {
+            "description": "SSE事件流",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string", "example": "SSE Message" },
+                    "count": { "type": "integer" },
+                    "timestamp": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
