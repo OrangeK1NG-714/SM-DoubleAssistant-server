@@ -127,6 +127,15 @@ class UserinfoService extends Service {
         return { code: 200, msg: '密码修改成功' };
     }
 
+    async getMyActivities(username, role) {
+        const { ctx } = this;
+        const query = role === 'student' ? { studentId: username } : { teacherId: username };
+        const records = await ctx.model.UserInActivity.find(query);
+        const activityIds = records.map(r => r.activityId);
+        if (activityIds.length === 0) return [];
+        return await ctx.model.Activity.find({ _id: { $in: activityIds } });
+    }
+
     async getChooseList(activityId) {
         const res = await this.ctx.model.Choose.find({ activityId });
         return res;

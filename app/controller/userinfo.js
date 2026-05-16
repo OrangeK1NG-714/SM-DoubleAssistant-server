@@ -124,6 +124,18 @@ class UserinfoController extends Controller {
         }
     }
 
+    async getMyActivities() {
+        const { ctx, service } = this;
+        try {
+            const { username, role } = ctx.auth;
+            const res = await service.userinfo.getMyActivities(username, role);
+            ctx.send(res, 200, 'success');
+        } catch (err) {
+            ctx.logger.error('getMyActivities error:', err);
+            ctx.send([], 500, '服务器错误');
+        }
+    }
+
     async refreshToken() {
         const { ctx } = this;
         const { refreshToken } = ctx.request.body;

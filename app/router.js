@@ -17,6 +17,8 @@ module.exports = app => {
   router.post('/api/user/refreshToken', controller.userinfo.refreshToken)
   //获取用户信息
   router.get('/api/user/detail',app.middleware.jwt(), controller.userinfo.getUserDetail);
+  //获取当前用户参与的所有活动
+  router.get('/api/user/getMyActivities', app.middleware.jwt(), controller.userinfo.getMyActivities);
 
   //写入学生信息
   router.post('/api/user/writeMsg', app.middleware.jwt(), controller.stdinfo.writeUserMsg)
