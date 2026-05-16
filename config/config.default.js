@@ -1,17 +1,8 @@
-/* eslint valid-jsdoc: "off" */
-
 const path = require('path');
 
 require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
 
-/**
- * @param {Egg.EggAppInfo} appInfo app info
- */
 module.exports = appInfo => {
-  /**
-   * built-in config
-   * @type {Egg.EggAppConfig}
-   **/
   const config = exports = {};
 
   config.keys = appInfo.name + '_1751160937705_7579';
@@ -102,17 +93,8 @@ module.exports = appInfo => {
   };
 
   config.aiModel = {
-    pythonPath: 'python',
-    predictScriptPath: path.resolve(__dirname, '../../ai-model/predict_request.py'),
-    modelPath: path.resolve(__dirname, '../../ai-model/artifacts/recommender_model.joblib'),
-    metricsPath: path.resolve(__dirname, '../../ai-model/artifacts/metrics.json'),
     teacherDataPath: path.resolve(__dirname, '../../ai-model/data/teacher_data.csv'),
   };
 
-  const userConfig = {};
-
-  return {
-    ...config,
-    ...userConfig,
-  };
+  return config;
 };

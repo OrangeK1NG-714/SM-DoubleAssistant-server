@@ -1,4 +1,3 @@
-//创建活动表
 module.exports = app => {
     const mongoose = app.mongoose;
     mongoose.pluralize(null);

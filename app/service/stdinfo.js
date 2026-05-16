@@ -4,23 +4,18 @@ const Service = require('egg').Service;
 
 class StdinfoService extends Service {
     async writeUserMsg(name, gender, studentId, grade, classNum, phone, gpa, direction, qq, wechat) {
-        try {
-            const data = { name, gender, studentId, grade, classNum, phone, gpa, direction, qq, wechat };
-            let student = await this.ctx.model.Student.findOne({ studentId });
-            if (student) {
-                student.data = data;
-                await student.save();
-                return { code: 200, msg: '学生信息已更新', data: student };
-            }
-            const newStudent = await this.ctx.model.Student.create({
-                studentId,
-                data,
-            });
-            return { code: 200, msg: '学生信息新增成功', data: newStudent };
-        } catch (error) {
-            this.ctx.logger.error(error);
-            return { code: 500, msg: '服务器错误' };
+        const data = { name, gender, studentId, grade, classNum, phone, gpa, direction, qq, wechat };
+        let student = await this.ctx.model.Student.findOne({ studentId });
+        if (student) {
+            student.data = data;
+            await student.save();
+            return { code: 200, msg: '学生信息已更新', data: student };
         }
+        const newStudent = await this.ctx.model.Student.create({
+            studentId,
+            data,
+        });
+        return { code: 200, msg: '学生信息新增成功', data: newStudent };
     }
 
     async updateUserMsg(name, gender, studentId) {
