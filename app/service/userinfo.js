@@ -142,8 +142,8 @@ class UserinfoService extends Service {
     }
 
     async getChooseCount(teacherId, activityId) {
-        const count = await this.ctx.model.Choose.countDocuments({ teacherId, activityId });
-        return count;
+        const res = await this.ctx.model.Choose.find({ teacherId, activityId });
+        return res;
     }
 
     async getChooseDetail(activityId, studentId) {
