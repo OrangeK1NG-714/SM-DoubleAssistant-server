@@ -1,6 +1,9 @@
 'use strict';
 
 const Controller = require('egg').Controller;
+const fs = require('fs');
+const fsp = fs.promises;
+const path = require('path');
 
 class StdinfoController extends Controller {
     async writeUserMsg() {
@@ -163,24 +166,54 @@ class StdinfoController extends Controller {
             if (ctx.auth.role !== 'student' && ctx.auth.role !== 'admin') {
                 return ctx.send([], 403, '仅学生或管理员可操作');
             }
-            const { filePath, fileName, studentId } = ctx.request.body;
+            const studentId = ctx.request.body.studentId;
             if (!studentId) {
                 return ctx.send([], 400, '学生ID不能为空');
             }
             if (ctx.auth.role === 'student' && ctx.auth.username !== studentId) {
                 return ctx.send([], 403, '无权操作他人信息');
             }
-            if (!fileName) {
-                return ctx.send([], 400, '文件名称不能为空');
+            const file = ctx.request.files?.[0];
+            if (!file) {
+                return ctx.send([], 400, '请选择要上传的文件');
             }
-            if (!filePath) {
-                return ctx.send([], 400, '文件路径不能为空');
+            const uploadDir = path.join(__dirname, '..', 'public', 'uploads', 'student');
+            try {
+                await fsp.access(uploadDir);
+            } catch {
+                await fsp.mkdir(uploadDir, { recursive: true });
             }
-            const res = await service.stdinfo.uploadResume(fileName, filePath, studentId);
+            const ext = path.extname(file.filename);
+            const fileName = `${studentId}_resume${ext}`;
+            const targetPath = path.join(uploadDir, fileName);
+            const fileData = await fsp.readFile(file.filepath);
+            await fsp.writeFile(targetPath, fileData);
+            const relativePath = '/public/uploads/student/' + fileName;
+            const res = await service.stdinfo.uploadResume(file.filename, relativePath, studentId);
             ctx.send([], res.code, res.msg);
         } catch (err) {
             ctx.logger.error('uploadResume error:', err);
-            ctx.send([], 500, '服务器错误');
+            ctx.send([], 500, '上传失败，请重试');
+        }
+    }
+
+    async getStudentResume() {
+        const { ctx, service } = this;
+        try {
+            const { studentId } = ctx.request.query;
+            if (!studentId) {
+                return ctx.send([], 400, '学生ID不能为空');
+            }
+            const result = await service.stdinfo.getStudentResume(studentId);
+            if (result.code !== 200) {
+                return ctx.send([], result.code, result.msg);
+            }
+            ctx.attachment(result.fileName);
+            ctx.set('Content-Type', result.contentType);
+            ctx.body = result.fileContent;
+        } catch (err) {
+            ctx.logger.error('getStudentResume error:', err);
+            ctx.send([], 500, '服务器错误，请重试');
         }
     }
 }

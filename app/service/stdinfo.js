@@ -1,6 +1,8 @@
 'use strict';
 
 const Service = require('egg').Service;
+const fsp = require('fs').promises;
+const path = require('path');
 
 class StdinfoService extends Service {
     async writeUserMsg(name, gender, studentId, grade, classNum, phone, gpa, direction, qq, wechat) {
@@ -127,13 +129,62 @@ class StdinfoService extends Service {
 
     async uploadResume(fileName, filePath, studentId) {
         const { ctx } = this;
-        let res = await ctx.model.Resume.findOne({ studentId });
-        if (!res) {
-            res = new ctx.model.Resume({ studentId, fileName, filePath });
-            await res.save();
-            return { code: 200, msg: '学生简历已上传', data: res };
+        const existing = await ctx.model.Resume.findOne({ studentId });
+        if (existing) {
+            if (existing.filePath && existing.filePath !== filePath) {
+                try {
+                    let oldPath = existing.filePath;
+                    if (oldPath.startsWith('/')) oldPath = oldPath.substring(1);
+                    const oldFilePath = path.normalize(path.join(__dirname, '..', oldPath));
+                    const expectedBase = path.normalize(path.join(__dirname, '..', 'public'));
+                    if (oldFilePath.startsWith(expectedBase)) {
+                        await fsp.unlink(oldFilePath).catch(() => {});
+                    }
+                } catch (e) {
+                    ctx.logger.warn('删除旧学生简历失败:', e.message);
+                }
+            }
+            existing.fileName = fileName;
+            existing.filePath = filePath;
+            existing.createTime = new Date();
+            await existing.save();
+            return { code: 200, msg: '学生简历已更新' };
         }
-        return { code: 409, msg: '学生简历已存在', data: res };
+        await ctx.model.Resume.create({ studentId, fileName, filePath });
+        return { code: 200, msg: '学生简历已上传' };
+    }
+
+    async getStudentResume(studentId) {
+        const { ctx } = this;
+        const resume = await ctx.model.Resume.findOne({ studentId });
+        if (!resume) {
+            return { code: 404, msg: '学生未上传简历' };
+        }
+        if (!resume.filePath) {
+            return { code: 404, msg: '简历文件路径不存在' };
+        }
+        const filePath = path.join(__dirname, '..', resume.filePath.substring(1));
+        try {
+            await fsp.access(filePath);
+        } catch {
+            return { code: 404, msg: '简历文件不存在' };
+        }
+        const fileContent = await fsp.readFile(filePath);
+        const ext = path.extname(resume.filePath).toLowerCase();
+        const contentTypeMap = {
+            '.pdf': 'application/pdf',
+            '.doc': 'application/msword',
+            '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png',
+        };
+        return {
+            code: 200,
+            fileName: resume.fileName,
+            contentType: contentTypeMap[ext] || 'application/octet-stream',
+            fileContent,
+        };
     }
 }
 

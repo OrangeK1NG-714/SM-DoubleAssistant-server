@@ -24,6 +24,7 @@ module.exports = app => {
   router.get('/api/student/isInActivity', app.middleware.jwt(), controller.stdinfo.isInActivity)
   router.post('/api/student/saveOpenid', app.middleware.jwt(), controller.stdinfo.saveOpenid)
   router.post('/api/student/uploadResume', app.middleware.jwt(), controller.stdinfo.uploadResume)
+  router.get('/api/student/getStudentResume', app.middleware.jwt(), controller.stdinfo.getStudentResume)
 
   // 老师选学生
   router.put('/api/student/updateTeacher', app.middleware.jwt(), controller.teainfo.updateChoose)
