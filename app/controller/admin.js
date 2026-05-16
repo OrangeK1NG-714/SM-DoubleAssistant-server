@@ -114,6 +114,24 @@ class AdminController extends Controller {
         }
     }
 
+    async batchAddUserToActivity() {
+        const { ctx, service } = this;
+        try {
+            const { activityId, users } = ctx.request.body;
+            if (!activityId) {
+                return ctx.send([], 400, '缺少参数 activityId');
+            }
+            if (!Array.isArray(users) || users.length === 0) {
+                return ctx.send([], 400, 'users 必须是非空数组');
+            }
+            const result = await service.admin.batchAddUserToActivity(activityId, users);
+            ctx.send(result, 200, `成功 ${result.successCount} 人，失败 ${result.failCount} 人`);
+        } catch (err) {
+            ctx.logger.error('batchAddUserToActivity error:', err);
+            ctx.send([], 500, '服务器错误');
+        }
+    }
+
     async getUserInfo() {
         const { ctx, service } = this;
         try {
@@ -187,6 +205,25 @@ class AdminController extends Controller {
             ctx.send([], res.code, res.msg);
         } catch (err) {
             ctx.logger.error('deleteUserInActivity error:', err);
+            ctx.send([], 500, '服务器错误');
+        }
+    }
+
+    async batchDeleteUserInActivity() {
+        const { ctx, service } = this;
+        try {
+            const { ids } = ctx.request.body;
+            if (!Array.isArray(ids) || ids.length === 0) {
+                return ctx.send([], 400, 'ids 必须是非空数组');
+            }
+            const invalid = ids.some(id => !ctx.isValidObjectId(id));
+            if (invalid) {
+                return ctx.send([], 400, '存在格式不正确的ID');
+            }
+            const result = await service.admin.batchDeleteUserInActivity(ids);
+            ctx.send(result, 200, `成功 ${result.successCount} 人，失败 ${result.failCount} 人`);
+        } catch (err) {
+            ctx.logger.error('batchDeleteUserInActivity error:', err);
             ctx.send([], 500, '服务器错误');
         }
     }

@@ -64,6 +64,8 @@ module.exports = app => {
 
   //把对应的老师添加到活动中去
   router.post('/api/admin/addTeacherToActivity', app.middleware.jwt({ requiredRole: 'admin' }), controller.admin.addTeacherToActivity)
+  //批量添加用户到活动
+  router.post('/api/admin/batchAddUserToActivity', app.middleware.jwt({ requiredRole: 'admin' }), controller.admin.batchAddUserToActivity)
   //把对应的学生添加到活动中去
   // router.post('/api/admin/addStudentToActivity', app.middleware.jwt({ requiredRole: 'admin' }), controller.admin.addStudentToActivity)
 
@@ -100,6 +102,8 @@ module.exports = app => {
   router.get('/api/admin/getUserListInActivity', app.middleware.jwt({ requiredRole: 'admin' }), controller.admin.getUserListInActivity)
   //删除某活动的某一用户
   router.delete('/api/admin/deleteUserInActivity', app.middleware.jwt({ requiredRole: 'admin' }), controller.admin.deleteUserInActivity)
+  //批量删除活动中的用户
+  router.post('/api/admin/batchDeleteUserInActivity', app.middleware.jwt({ requiredRole: 'admin' }), controller.admin.batchDeleteUserInActivity)
   //查询选择志愿列表
   router.get('/api/admin/getSelectedList', app.middleware.jwt({ requiredRole: 'admin' }), controller.admin.getSelectedList)
   //删除某项选择志愿

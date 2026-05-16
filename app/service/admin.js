@@ -72,6 +72,25 @@ class AdminService extends Service {
         return { code: 200, msg: '添加成功' };
     }
 
+    async batchAddUserToActivity(activityId, users) {
+        const { ctx } = this;
+        let successCount = 0;
+        let failCount = 0;
+        for (const user of users) {
+            const query = { activityId };
+            if (user.teacherId) query.teacherId = user.teacherId;
+            if (user.studentId) query.studentId = user.studentId;
+            const existing = await ctx.model.UserInActivity.findOne(query);
+            if (existing) {
+                failCount++;
+            } else {
+                await ctx.model.UserInActivity.create(query);
+                successCount++;
+            }
+        }
+        return { successCount, failCount };
+    }
+
     async getUserList() {
         const { ctx } = this;
         return await ctx.model.Userinfo.find({}, { password: 0 });
@@ -158,6 +177,12 @@ class AdminService extends Service {
             return { code: 400, msg: '记录不存在' };
         }
         return { code: 200, msg: '删除成功' };
+    }
+
+    async batchDeleteUserInActivity(ids) {
+        const { ctx } = this;
+        const result = await ctx.model.UserInActivity.deleteMany({ _id: { $in: ids } });
+        return { successCount: result.deletedCount, failCount: ids.length - result.deletedCount };
     }
 
     async getSelectedList(studentId, activityId) {
