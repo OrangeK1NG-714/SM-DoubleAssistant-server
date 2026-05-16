@@ -92,6 +92,8 @@ module.exports = appInfo => {
     exposeHeaders: ['Authorization'],
   };
 
+  config.uploadDir = process.env.UPLOAD_DIR || path.join(appInfo.baseDir, 'app/public/uploads');
+
   config.aiModel = {
     teacherDataPath: path.resolve(__dirname, '../../ai-model/data/teacher_data.csv'),
   };

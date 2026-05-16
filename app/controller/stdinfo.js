@@ -161,7 +161,7 @@ class StdinfoController extends Controller {
     }
 
     async uploadResume() {
-        const { ctx, service } = this;
+        const { ctx, service, app } = this;
         try {
             if (ctx.auth.role !== 'student' && ctx.auth.role !== 'admin') {
                 return ctx.send([], 403, '仅学生或管理员可操作');
@@ -177,7 +177,7 @@ class StdinfoController extends Controller {
             if (!file) {
                 return ctx.send([], 400, '请选择要上传的文件');
             }
-            const uploadDir = path.join(__dirname, '..', 'public', 'uploads', 'student');
+            const uploadDir = path.join(app.config.uploadDir, 'student');
             try {
                 await fsp.access(uploadDir);
             } catch {
@@ -188,8 +188,8 @@ class StdinfoController extends Controller {
             const targetPath = path.join(uploadDir, fileName);
             const fileData = await fsp.readFile(file.filepath);
             await fsp.writeFile(targetPath, fileData);
-            const relativePath = '/public/uploads/student/' + fileName;
-            const res = await service.stdinfo.uploadResume(file.filename, relativePath, studentId);
+            const subPath = 'student/' + fileName;
+            const res = await service.stdinfo.uploadResume(file.filename, subPath, studentId);
             ctx.send([], res.code, res.msg);
         } catch (err) {
             ctx.logger.error('uploadResume error:', err);

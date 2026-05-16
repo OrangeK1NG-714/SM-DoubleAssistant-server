@@ -381,7 +381,7 @@ class AdminController extends Controller {
     }
 
     async uploadTeacherResume() {
-        const { ctx, service } = this;
+        const { ctx, service, app } = this;
         try {
             const teacherId = ctx.request.body.teacherId;
             const resumeName = ctx.request.body.resumeName;
@@ -392,19 +392,20 @@ class AdminController extends Controller {
             if (!file) {
                 return ctx.send([], 400, '请选择要上传的文件');
             }
-            const uploadDir = path.join(__dirname, '..', 'public', 'uploads');
+            const uploadDir = path.join(app.config.uploadDir, 'teacher');
             try {
                 await fsp.access(uploadDir);
             } catch {
                 await fsp.mkdir(uploadDir, { recursive: true });
             }
+            const ext = path.extname(file.filename);
             const rawName = resumeName || file.filename;
-            const fileName = path.basename(rawName);
+            const fileName = path.basename(rawName, path.extname(rawName)) + ext;
             const targetPath = path.join(uploadDir, fileName);
             const fileData = await fsp.readFile(file.filepath);
             await fsp.writeFile(targetPath, fileData);
-            const relativePath = '/public/uploads/' + fileName;
-            const res = await service.admin.uploadTeacherResume(teacherId, fileName, relativePath);
+            const subPath = 'teacher/' + fileName;
+            const res = await service.admin.uploadTeacherResume(teacherId, fileName, subPath);
             ctx.send([], res.code, res.msg);
         } catch (err) {
             ctx.logger.error('uploadTeacherResume error:', err);

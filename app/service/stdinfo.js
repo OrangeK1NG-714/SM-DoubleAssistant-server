@@ -129,15 +129,13 @@ class StdinfoService extends Service {
 
     async uploadResume(fileName, filePath, studentId) {
         const { ctx } = this;
+        const uploadDir = this.app.config.uploadDir;
         const existing = await ctx.model.Resume.findOne({ studentId });
         if (existing) {
             if (existing.filePath && existing.filePath !== filePath) {
                 try {
-                    let oldPath = existing.filePath;
-                    if (oldPath.startsWith('/')) oldPath = oldPath.substring(1);
-                    const oldFilePath = path.normalize(path.join(__dirname, '..', oldPath));
-                    const expectedBase = path.normalize(path.join(__dirname, '..', 'public'));
-                    if (oldFilePath.startsWith(expectedBase)) {
+                    const oldFilePath = path.normalize(path.join(uploadDir, existing.filePath));
+                    if (oldFilePath.startsWith(path.normalize(uploadDir))) {
                         await fsp.unlink(oldFilePath).catch(() => {});
                     }
                 } catch (e) {
@@ -156,6 +154,7 @@ class StdinfoService extends Service {
 
     async getStudentResume(studentId) {
         const { ctx } = this;
+        const uploadDir = this.app.config.uploadDir;
         const resume = await ctx.model.Resume.findOne({ studentId });
         if (!resume) {
             return { code: 404, msg: '学生未上传简历' };
@@ -163,7 +162,7 @@ class StdinfoService extends Service {
         if (!resume.filePath) {
             return { code: 404, msg: '简历文件路径不存在' };
         }
-        const filePath = path.join(__dirname, '..', resume.filePath.substring(1));
+        const filePath = path.join(uploadDir, resume.filePath);
         try {
             await fsp.access(filePath);
         } catch {

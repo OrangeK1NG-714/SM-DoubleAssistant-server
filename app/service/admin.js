@@ -280,6 +280,7 @@ class AdminService extends Service {
 
     async uploadTeacherResume(teacherId, resumeName, resumePath) {
         const { ctx } = this;
+        const uploadDir = this.app.config.uploadDir;
 
         if (!teacherId || !resumeName || !resumePath) {
             return { code: 400, msg: '缺少必要参数' };
@@ -292,13 +293,8 @@ class AdminService extends Service {
 
         if (teacher.resumePath && teacher.resumePath !== resumePath) {
             try {
-                let oldResumePath = teacher.resumePath;
-                if (oldResumePath.startsWith('/')) {
-                    oldResumePath = oldResumePath.substring(1);
-                }
-                const oldFilePath = path.normalize(path.join(__dirname, '..', oldResumePath));
-                const expectedBasePath = path.normalize(path.join(__dirname, '..', 'public'));
-                if (oldFilePath.startsWith(expectedBasePath)) {
+                const oldFilePath = path.normalize(path.join(uploadDir, teacher.resumePath));
+                if (oldFilePath.startsWith(path.normalize(uploadDir))) {
                     await fsp.unlink(oldFilePath).catch(() => {});
                 }
             } catch (fileError) {
@@ -321,6 +317,7 @@ class AdminService extends Service {
 
     async getTeacherResume(teacherId) {
         const { ctx } = this;
+        const uploadDir = this.app.config.uploadDir;
 
         if (!teacherId) {
             return { code: 400, msg: '教师ID不能为空' };
@@ -335,7 +332,7 @@ class AdminService extends Service {
             return { code: 404, msg: '老师未上传简历' };
         }
 
-        const filePath = path.join(__dirname, '..', teacher.resumePath.substring(1));
+        const filePath = path.join(uploadDir, teacher.resumePath);
 
         try {
             await fsp.access(filePath);
@@ -344,8 +341,7 @@ class AdminService extends Service {
         }
 
         const fileContent = await fsp.readFile(filePath);
-
-        const fileExtension = path.extname(teacher.resumePath).toLowerCase();
+        const ext = path.extname(teacher.resumePath).toLowerCase();
         const contentTypeMap = {
             '.pdf': 'application/pdf',
             '.doc': 'application/msword',
@@ -353,15 +349,13 @@ class AdminService extends Service {
             '.jpg': 'image/jpeg',
             '.jpeg': 'image/jpeg',
             '.png': 'image/png',
-            '.txt': 'text/plain',
         };
-        const contentType = contentTypeMap[fileExtension] || 'application/octet-stream';
 
         return {
             code: 200,
             msg: '获取成功',
             resumeName: teacher.resumeName,
-            contentType,
+            contentType: contentTypeMap[ext] || 'application/octet-stream',
             fileContent,
         };
     }
