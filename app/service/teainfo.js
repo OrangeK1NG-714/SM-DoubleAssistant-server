@@ -43,6 +43,67 @@ class TeainfoService extends Service {
     async isInActivity(teacherId, activityId) {
         return await this.ctx.model.UserInActivity.findOne({ teacherId, activityId });
     }
+
+    async getChooseStudents(teacherId, activityId) {
+        const chooseList = await this.ctx.model.Choose.find({ teacherId, activityId });
+        const studentIds = [...new Set(chooseList.map(c => c.studentId))];
+        if (studentIds.length === 0) return [];
+
+        const [students, finals] = await Promise.all([
+            this.ctx.model.Student.find({ studentId: { $in: studentIds } }),
+            this.ctx.model.Final.find({ activityId, studentId: { $in: studentIds } }),
+        ]);
+
+        const studentMap = new Map(students.map(s => [s.studentId, s.data || {}]));
+        const finalMap = new Map(finals.map(f => [f.studentId, f.teacherId]));
+
+        return chooseList.map(c => ({
+            ...c.toObject(),
+            data: studentMap.get(c.studentId) || {},
+            isChose: !!finalMap.get(c.studentId),
+            finalTeacher: finalMap.get(c.studentId) || '',
+        }));
+    }
+
+    async selectStudentAndUpdate(studentId, teacherId, activityId, data, order) {
+        const existing = await this.ctx.model.Final.findOne({ studentId, teacherId, activityId });
+        if (existing) {
+            return { code: 409, msg: '该学生已被选择，请勿重复操作' };
+        }
+        const choose = await this.ctx.model.Choose.findOne({ studentId, teacherId, activityId });
+        if (!choose) {
+            return { code: 404, msg: '选择记录不存在' };
+        }
+        const final = await this.ctx.model.Final.create({ studentId, teacherId, activityId, data, order });
+        choose.isChose = true;
+        await choose.save();
+        return { code: 200, msg: '老师已选学生', data: final };
+    }
+
+    async cancelSelectAndUpdate(studentId, teacherId, activityId) {
+        const choose = await this.ctx.model.Choose.findOne({ studentId, teacherId, activityId });
+        if (!choose) {
+            return { code: 404, msg: '选择记录不存在' };
+        }
+        await this.ctx.model.Final.deleteOne({ studentId, teacherId, activityId });
+        choose.isChose = false;
+        await choose.save();
+        return { code: 200, msg: '老师取消选择学生' };
+    }
+
+    async getChoosePageData(teacherId, activityId) {
+        const [students, userInActivity, activity] = await Promise.all([
+            this.getChooseStudents(teacherId, activityId),
+            this.ctx.model.UserInActivity.findOne({ activityId, teacherId }),
+            this.ctx.model.Activity.findById(activityId),
+        ]);
+
+        return {
+            students,
+            maxSelectNum: userInActivity ? userInActivity.maxSelectNum : 0,
+            activity: activity || null,
+        };
+    }
 }
 
 module.exports = TeainfoService;

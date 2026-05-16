@@ -331,6 +331,25 @@ class AdminController extends Controller {
         }
     }
 
+    async batchConfigMaxSelectNum() {
+        const { ctx, service } = this;
+        try {
+            const { activityId, maxSelectNum } = ctx.request.body;
+            if (!activityId) {
+                return ctx.send([], 400, '缺少必填参数 activityId');
+            }
+            const num = Number(maxSelectNum);
+            if (!Number.isInteger(num) || num < 1) {
+                return ctx.send([], 400, 'maxSelectNum 必须是正整数');
+            }
+            const res = await service.admin.batchConfigMaxSelectNum(activityId, num);
+            ctx.send({ modifiedCount: res.modifiedCount }, res.code, res.msg);
+        } catch (err) {
+            ctx.logger.error('batchConfigMaxSelectNum error:', err);
+            ctx.send([], 500, '服务器错误');
+        }
+    }
+
     async getMaxSelectNum() {
         const { ctx, service } = this;
         try {

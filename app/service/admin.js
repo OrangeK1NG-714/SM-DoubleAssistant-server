@@ -258,6 +258,15 @@ class AdminService extends Service {
         return { code: 200, msg: '配置成功' };
     }
 
+    async batchConfigMaxSelectNum(activityId, maxSelectNum) {
+        const { ctx } = this;
+        const result = await ctx.model.UserInActivity.updateMany(
+            { activityId, teacherId: { $exists: true, $ne: null } },
+            { maxSelectNum }
+        );
+        return { code: 200, msg: '批量配置成功', modifiedCount: result.modifiedCount };
+    }
+
     async getMaxSelectNum(activityId, teacherId) {
         const { ctx } = this;
         return await ctx.model.UserInActivity.findOne({ activityId, teacherId });
