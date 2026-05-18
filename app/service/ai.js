@@ -5,9 +5,15 @@ const fs = require('fs');
 const fsp = fs.promises;
 
 const DIRECTION_KEYWORDS = {
-    ai: ['人工智能', '深度学习', '机器学习', '大模型', '多模态', '知识图谱', '数据挖掘', '计算机视觉', 'nlp', '语音', '自然语言', '智能', '算法', '脑', '检测'],
-    design: ['交互', '用户体验', '视觉设计', '前端', '产品设计', '数字媒体', '图形', '动画', '品牌', '游戏', '影视', '短视频', '动漫', '图像', '非遗', '数字化', 'VR', '虚拟'],
-    engineering: ['系统', '网络', '数据库', '云计算', '分布式', '软件', '程序设计', '开发', '移动', '区块链', 'C语言', 'C++', 'Java', 'Python', 'ACM', '竞赛'],
+    前端开发: ['前端', 'HTML5', '交互设计', '交互动画', '用户体验', '产品设计', 'UI', '可视化', '数据可视化', '移动应用', '移动开发', '多媒体', '数字媒体', '图形学', '计算机图形'],
+    后端开发: ['后端', '服务器', '系统开发', '数据库', '网络', '分布式', '云计算', 'Java', 'C语言', 'C++', 'Python', '程序设计', '软件开发', '计算机网络', '信息安全', '嵌入式'],
+    测试开发: ['测试', '白盒测试', '软件测试', '程序设计', '软件开发', 'Python', 'Java', 'C语言', '算法', '数据结构', '系统开发', '自动化'],
+    UI设计: ['UI设计', '视觉设计', '交互设计', '用户体验', '产品设计', '品牌设计', '图形', '色彩', '动漫', '数字媒体', '图像处理', '非遗', '数字化', '动画'],
+    产品经理: ['产品设计', '产品开发', '互联网产品', '用户体验', '交互设计', '品牌', '数字产品', 'UI', '前端', '数据分析', '项目管理'],
+    游戏策划: ['游戏策划', '游戏设计', '游戏开发', '虚拟现实', 'VR', '数字媒体', 'UE', '3D', '动画', '交互', '数字视频', '多媒体'],
+    游戏开发: ['游戏开发', '游戏设计', 'UE', '3D', '虚拟现实', 'VR', 'C++', 'C语言', '程序设计', '算法', '图形学', '计算机图形', '仿真', '引擎'],
+    视频剪辑: ['视频剪辑', '影视', '短视频', '视频编导', '影视后期', '新媒体', '数字媒体', '媒体技术', '动画', '图像处理', '视觉', '非遗数字化'],
+    视频编导: ['视频编导', '影视', '短视频', '视频剪辑', '影视后期', '新媒体', '数字媒体', '媒体技术', '策划', '动画', '数字视频'],
 };
 
 let _cachedProfiles = null;
@@ -15,10 +21,12 @@ let _cachedProfilesPath = null;
 
 function classifyStudentDirection(direction) {
     if (!direction) return 'general';
-    const d = direction.toLowerCase();
-    if (d.includes('人工智能') || d.includes('ai') || d.includes('深度学习') || d.includes('机器学习') || d.includes('算法') || d.includes('数据')) return 'ai';
-    if (d.includes('设计') || d.includes('交互') || d.includes('视觉') || d.includes('前端') || d.includes('游戏') || d.includes('动画') || d.includes('影视') || d.includes('媒体')) return 'design';
-    if (d.includes('开发') || d.includes('工程') || d.includes('系统') || d.includes('网络') || d.includes('后端') || d.includes('软件')) return 'engineering';
+    const d = direction.trim();
+    if (DIRECTION_KEYWORDS[d]) return d;
+    const dLower = d.toLowerCase();
+    for (const key of Object.keys(DIRECTION_KEYWORDS)) {
+        if (dLower.includes(key.toLowerCase()) || key.toLowerCase().includes(dLower)) return key;
+    }
     return 'general';
 }
 

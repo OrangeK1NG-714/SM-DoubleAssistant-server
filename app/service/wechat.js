@@ -78,7 +78,7 @@ class WechatService extends Service {
             template_id: subscribeTemplateId,
             // 可选：点击消息跳转的小程序页面
             // page: 'pages/myAmbition/index',
-            miniprogram_state: 'formal', // developer=开发版 trial=体验版 formal=正式版
+            miniprogram_state: this.app.config.wxMiniApp.miniprogramState || 'developer',
             lang: 'zh_CN',
             data: msgData,
         };

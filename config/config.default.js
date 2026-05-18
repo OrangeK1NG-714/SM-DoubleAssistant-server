@@ -62,6 +62,7 @@ module.exports = appInfo => {
     appid: process.env.WX_APPID,
     secret: process.env.WX_SECRET,
     subscribeTemplateId: process.env.WX_SUBSCRIBE_TEMPLATE_ID,
+    miniprogramState: process.env.WX_MINIPROGRAM_STATE || 'developer',
   };
 
   config.jwt = {
@@ -95,7 +96,7 @@ module.exports = appInfo => {
   config.uploadDir = process.env.UPLOAD_DIR || path.join(appInfo.baseDir, 'app/public/uploads');
 
   config.aiModel = {
-    teacherDataPath: path.resolve(__dirname, '../../ai-model/data/teacher_data.csv'),
+    teacherDataPath: path.resolve(__dirname, '../app/data/teacher_data.csv'),
   };
 
   return config;

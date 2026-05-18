@@ -32,39 +32,6 @@ class TeainfoService extends Service {
         return { code: 200, msg: '老师取消选择学生', data: res };
     }
 
-    async getSelectList(teacherId, activityId, studentId) {
-        const query = {};
-        if (teacherId) query.teacherId = teacherId;
-        if (activityId) query.activityId = activityId;
-        if (studentId) query.studentId = studentId;
-        return await this.ctx.model.Final.find(query);
-    }
-
-    async isInActivity(teacherId, activityId) {
-        return await this.ctx.model.UserInActivity.findOne({ teacherId, activityId });
-    }
-
-    async getChooseStudents(teacherId, activityId) {
-        const chooseList = await this.ctx.model.Choose.find({ teacherId, activityId });
-        const studentIds = [...new Set(chooseList.map(c => c.studentId))];
-        if (studentIds.length === 0) return [];
-
-        const [students, finals] = await Promise.all([
-            this.ctx.model.Student.find({ studentId: { $in: studentIds } }),
-            this.ctx.model.Final.find({ activityId, studentId: { $in: studentIds } }),
-        ]);
-
-        const studentMap = new Map(students.map(s => [s.studentId, s.data || {}]));
-        const finalMap = new Map(finals.map(f => [f.studentId, f.teacherId]));
-
-        return chooseList.map(c => ({
-            ...c.toObject(),
-            data: studentMap.get(c.studentId) || {},
-            isChose: !!finalMap.get(c.studentId),
-            finalTeacher: finalMap.get(c.studentId) || '',
-        }));
-    }
-
     async selectStudentAndUpdate(studentId, teacherId, activityId, data, order) {
         const existing = await this.ctx.model.Final.findOne({ studentId, teacherId, activityId });
         if (existing) {
@@ -89,6 +56,41 @@ class TeainfoService extends Service {
         choose.isChose = false;
         await choose.save();
         return { code: 200, msg: '老师取消选择学生' };
+    }
+
+    async getSelectList(teacherId, activityId, studentId) {
+        const query = {};
+        if (teacherId) query.teacherId = teacherId;
+        if (activityId) query.activityId = activityId;
+        if (studentId) query.studentId = studentId;
+        return await this.ctx.model.Final.find(query);
+    }
+
+    async isInActivity(teacherId, activityId) {
+        return await this.ctx.model.UserInActivity.findOne({ teacherId, activityId });
+    }
+
+    async getChooseStudents(teacherId, activityId) {
+        const chooseList = await this.ctx.model.Choose.find({ teacherId, activityId });
+        const studentIds = [...new Set(chooseList.map(c => c.studentId))];
+        if (studentIds.length === 0) return [];
+
+        const [students, finals, resumes] = await Promise.all([
+            this.ctx.model.Student.find({ studentId: { $in: studentIds } }),
+            this.ctx.model.Final.find({ activityId, studentId: { $in: studentIds } }),
+            this.ctx.model.Resume.find({ studentId: { $in: studentIds } }),
+        ]);
+
+        const studentMap = new Map(students.map(s => [s.studentId, s.data || {}]));
+        const finalMap = new Map(finals.map(f => [f.studentId, f.teacherId]));
+        const resumeMap = new Map(resumes.map(r => [r.studentId, { resumeName: r.fileName, resumePath: r.filePath }]));
+
+        return chooseList.map(c => ({
+            ...c.toObject(),
+            data: { ...(studentMap.get(c.studentId) || {}), ...(resumeMap.get(c.studentId) || {}) },
+            isChose: !!finalMap.get(c.studentId),
+            finalTeacher: finalMap.get(c.studentId) || '',
+        }));
     }
 
     async getChoosePageData(teacherId, activityId) {

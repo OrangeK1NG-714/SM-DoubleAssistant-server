@@ -86,7 +86,7 @@ class StdinfoService extends Service {
         const teacherIds = activityTeachers.map(t => t.teacherId);
         if (teacherIds.length === 0) return [];
 
-        const [teachers, chooseCounts] = await Promise.all([
+        const [teachers, chooseCounts, finalCounts] = await Promise.all([
             ctx.model.Teacher.find({ teacherId: { $in: teacherIds } }),
             ctx.model.Choose.aggregate([
                 { $match: { activityId, teacherId: { $in: teacherIds } } },
@@ -96,21 +96,30 @@ class StdinfoService extends Service {
                     selectedCount: { $sum: { $cond: ['$isChose', 1, 0] } },
                 } },
             ]),
+            ctx.model.Final.aggregate([
+                { $match: { activityId } },
+                { $group: { _id: '$teacherId', finalCount: { $sum: 1 } } },
+            ]),
         ]);
 
         const teacherMap = new Map(teachers.map(t => [t.teacherId, t]));
         const countMap = new Map(chooseCounts.map(c => [c._id, c]));
+        const finalCountMap = new Map(finalCounts.map(c => [c._id, c.finalCount]));
         const maxSelectMap = new Map(activityTeachers.map(t => [t.teacherId, t.maxSelectNum || 0]));
 
         return teacherIds.map(id => {
             const teacher = teacherMap.get(id) || {};
             const counts = countMap.get(id) || { chooseCount: 0, selectedCount: 0 };
+            const maxNum = maxSelectMap.get(id) || 0;
+            const finalCount = finalCountMap.get(id) || 0;
             return {
                 teacherId: id,
                 name: teacher.name || '',
                 msg: teacher.msg || '',
                 teacherType: teacher.teacherType || '',
-                maxSelectNum: maxSelectMap.get(id) || 0,
+                maxSelectNum: maxNum,
+                finalCount,
+                remainingSlots: Math.max(0, maxNum - finalCount),
                 chooseCount: counts.chooseCount,
                 selectedCount: counts.selectedCount,
             };
@@ -127,12 +136,12 @@ class StdinfoService extends Service {
         return await ctx.model.Student.findOne({ studentId });
     }
 
-    async uploadResume(fileName, filePath, studentId) {
+    async uploadResume(originalFileName, subPath, studentId) {
         const { ctx } = this;
         const uploadDir = this.app.config.uploadDir;
         const existing = await ctx.model.Resume.findOne({ studentId });
         if (existing) {
-            if (existing.filePath && existing.filePath !== filePath) {
+            if (existing.filePath && existing.filePath !== subPath) {
                 try {
                     const oldFilePath = path.normalize(path.join(uploadDir, existing.filePath));
                     if (oldFilePath.startsWith(path.normalize(uploadDir))) {
@@ -142,13 +151,13 @@ class StdinfoService extends Service {
                     ctx.logger.warn('删除旧学生简历失败:', e.message);
                 }
             }
-            existing.fileName = fileName;
-            existing.filePath = filePath;
+            existing.fileName = originalFileName;
+            existing.filePath = subPath;
             existing.createTime = new Date();
             await existing.save();
             return { code: 200, msg: '学生简历已更新' };
         }
-        await ctx.model.Resume.create({ studentId, fileName, filePath });
+        await ctx.model.Resume.create({ studentId, fileName: originalFileName, filePath: subPath });
         return { code: 200, msg: '学生简历已上传' };
     }
 
