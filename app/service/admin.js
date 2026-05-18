@@ -31,16 +31,33 @@ class AdminService extends Service {
 
     async updateActivity(_id, name, description, startDate, endDate, firstChooseStartDate, firstChooseEndDate, secondChooseStartDate, secondChooseEndDate, thirdChooseStartDate, thirdChooseEndDate, stdChooseStartDate, stdChooseEndDate) {
         const { ctx } = this;
-        const res = await ctx.model.Activity.findByIdAndUpdate(_id, {
+        const old = await ctx.model.Activity.findById(_id);
+        if (!old) {
+            return { code: 400, msg: '活动不存在' };
+        }
+
+        const dateFields = [
+            'startDate', 'endDate',
+            'firstChooseStartDate', 'firstChooseEndDate',
+            'secondChooseStartDate', 'secondChooseEndDate',
+            'thirdChooseStartDate', 'thirdChooseEndDate',
+            'stdChooseStartDate', 'stdChooseEndDate',
+        ];
+        const incoming = { startDate, endDate, firstChooseStartDate, firstChooseEndDate, secondChooseStartDate, secondChooseEndDate, thirdChooseStartDate, thirdChooseEndDate, stdChooseStartDate, stdChooseEndDate };
+        const dateChanged = dateFields.some(f => incoming[f] && String(new Date(incoming[f])) !== String(old[f]));
+
+        const update = {
             name, description, startDate, endDate,
             firstChooseStartDate, firstChooseEndDate,
             secondChooseStartDate, secondChooseEndDate,
             thirdChooseStartDate, thirdChooseEndDate,
             stdChooseStartDate, stdChooseEndDate,
-        });
-        if (!res) {
-            return { code: 400, msg: '活动不存在' };
+        };
+        if (dateChanged) {
+            update.subscribeSent = false;
         }
+
+        await ctx.model.Activity.findByIdAndUpdate(_id, update);
         return { code: 200, msg: '活动更新成功' };
     }
 
@@ -57,6 +74,61 @@ class AdminService extends Service {
             ctx.model.Final.deleteMany({ activityId }),
         ]);
         return { code: 200, msg: '活动删除成功' };
+    }
+
+    async deleteUser(id) {
+        const { ctx } = this;
+        const user = await ctx.model.User.findById(id);
+        if (!user) {
+            return { code: 400, msg: '用户不存在' };
+        }
+        if (user.role === 'admin') {
+            return { code: 400, msg: '不允许删除管理员账号' };
+        }
+        const { username, role } = user;
+        await ctx.model.User.findByIdAndDelete(id);
+
+        const uploadDir = this.app.config.uploadDir;
+
+        if (role === 'teacher') {
+            const teacher = await ctx.model.Teacher.findOne({ teacherId: username });
+            if (teacher && teacher.resumePath) {
+                try {
+                    const absPath = path.normalize(path.join(uploadDir, teacher.resumePath));
+                    if (absPath.startsWith(path.normalize(uploadDir))) {
+                        await fsp.unlink(absPath).catch(() => {});
+                    }
+                } catch (e) {
+                    // ignore if file already removed
+                }
+            }
+            await Promise.all([
+                ctx.model.Teacher.deleteOne({ teacherId: username }),
+                ctx.model.UserInActivity.deleteMany({ teacherId: username }),
+                ctx.model.Choose.deleteMany({ teacherId: username }),
+                ctx.model.Final.deleteMany({ teacherId: username }),
+            ]);
+        } else if (role === 'student') {
+            const resume = await ctx.model.Resume.findOne({ studentId: username });
+            if (resume && resume.filePath) {
+                try {
+                    const absPath = path.normalize(path.join(uploadDir, resume.filePath));
+                    if (absPath.startsWith(path.normalize(uploadDir))) {
+                        await fsp.unlink(absPath).catch(() => {});
+                    }
+                } catch (e) {
+                    // ignore if file already removed
+                }
+            }
+            await Promise.all([
+                ctx.model.Student.deleteOne({ studentId: username }),
+                ctx.model.Resume.deleteOne({ studentId: username }),
+                ctx.model.UserInActivity.deleteMany({ studentId: username }),
+                ctx.model.Choose.deleteMany({ studentId: username }),
+                ctx.model.Final.deleteMany({ studentId: username }),
+            ]);
+        }
+        return { code: 200, msg: '用户删除成功' };
     }
 
     async addTeacherToActivity(activityId, teacherId = null, studentId = null) {
@@ -204,6 +276,18 @@ class AdminService extends Service {
             return { code: 400, msg: '记录不存在' };
         }
         return { code: 200, msg: '删除成功' };
+    }
+
+    async addFinal(activityId, studentId, teacherId) {
+        const { ctx } = this;
+        const existing = await ctx.model.Final.findOne({ studentId, activityId });
+        if (existing) {
+            return { code: 409, msg: '该学生在此活动中已有录取记录' };
+        }
+        const student = await ctx.model.Student.findOne({ studentId });
+        const data = student ? student.data : { studentId };
+        await ctx.model.Final.create({ activityId, studentId, teacherId, data, order: 0 });
+        return { code: 200, msg: '录取记录添加成功' };
     }
 
     async getFinalList(studentId, teacherId, activityId) {

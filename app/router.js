@@ -54,6 +54,7 @@ module.exports = app => {
   // 管理端 - 用户管理
   router.get('/api/admin/getUserList', app.middleware.jwt({ requiredRole: 'admin' }), controller.admin.getUserList)
   router.get('/api/admin/getUserInfo', app.middleware.jwt({ requiredRole: 'admin' }), controller.admin.getUserInfo)
+  router.delete('/api/admin/deleteUser', app.middleware.jwt({ requiredRole: 'admin' }), controller.admin.deleteUser)
   router.post('/api/admin/resetPassword', app.middleware.jwt({ requiredRole: 'admin' }), controller.admin.resetPassword)
   router.post('/api/admin/resetSelectedPassword', app.middleware.jwt({ requiredRole: 'admin' }), controller.admin.resetSelectedPassword)
 
@@ -70,6 +71,7 @@ module.exports = app => {
   router.get('/api/admin/getSelectedList', app.middleware.jwt({ requiredRole: 'admin' }), controller.admin.getSelectedList)
   router.delete('/api/admin/deleteSelected', app.middleware.jwt({ requiredRole: 'admin' }), controller.admin.deleteSelected)
   router.get('/api/admin/getFinalList', app.middleware.jwt({ requiredRole: 'admin' }), controller.admin.getFinalList)
+  router.post('/api/admin/addFinal', app.middleware.jwt({ requiredRole: 'admin' }), controller.admin.addFinal)
   router.delete('/api/admin/resetVolunteer', app.middleware.jwt({ requiredRole: 'admin' }), controller.admin.resetVolunteer)
 
   // 管理端 - 配额配置

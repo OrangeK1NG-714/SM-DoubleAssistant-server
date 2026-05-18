@@ -30,11 +30,23 @@ class SendSubscribeMsg extends Subscription {
                 const finalList = await ctx.model.Final.find({ activityId });
                 const selectedStudentIds = new Set(finalList.map(r => r.studentId));
 
-                const chooseList = await ctx.model.Choose.find({ activityId });
-                const allStudentIds = [...new Set(chooseList.map(r => r.studentId))];
+                const chooseList = await ctx.model.Choose.find({
+                    activityId,
+                    subscribeStatus: { $ne: 'sent' },
+                });
 
-                // 批量查询所有学生和相关老师，避免 N+1
-                const students = await ctx.model.Student.find({ studentId: { $in: allStudentIds } });
+                const studentIdSet = new Set(chooseList.map(r => r.studentId));
+                const pendingStudentIds = [...studentIdSet];
+
+                if (pendingStudentIds.length === 0) {
+                    activity.subscribeSent = true;
+                    await activity.save();
+                    await this._cleanUnselectedChoose(activityId, selectedStudentIds);
+                    ctx.logger.info(`[sendSubscribeMsg] 活动 ${activityId} 无待推送学生，已标记完成并清理志愿`);
+                    continue;
+                }
+
+                const students = await ctx.model.Student.find({ studentId: { $in: pendingStudentIds } });
                 const studentMap = {};
                 students.forEach(s => { studentMap[s.studentId] = s; });
 
@@ -45,7 +57,7 @@ class SendSubscribeMsg extends Subscription {
 
                 let successSelected = 0, successRejected = 0, skipped = 0, failed = 0;
 
-                for (const studentId of allStudentIds) {
+                for (const studentId of pendingStudentIds) {
                     try {
                         const student = studentMap[studentId];
                         if (!student || !student.openid) {
@@ -53,41 +65,61 @@ class SendSubscribeMsg extends Subscription {
                             continue;
                         }
 
+                        let msgData;
                         if (selectedStudentIds.has(studentId)) {
                             const finalRecord = finalList.find(r => r.studentId === studentId);
                             const teacher = finalRecord ? teacherMap[finalRecord.teacherId] : null;
                             const teacherName = teacher ? teacher.name : '导师';
-
-                            await ctx.service.wechat.sendSubscribeMessage(student.openid, {
+                            msgData = {
                                 thing1: { value: activity.name },
                                 time2: { value: now.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }) },
                                 thing3: { value: `${teacherName} 老师已选择你` },
                                 thing4: { value: '请登录系统查看最终结果，有疑问请找管理员咨询' },
-                            });
-                            successSelected++;
+                            };
                         } else {
-                            await ctx.service.wechat.sendSubscribeMessage(student.openid, {
+                            msgData = {
                                 thing1: { value: activity.name },
                                 time2: { value: now.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }) },
                                 thing3: { value: '很遗憾，本次未被导师选中' },
                                 thing4: { value: '请关注补选时间，有疑问请找管理员咨询' },
-                            });
+                            };
+                        }
+
+                        await ctx.service.wechat.sendSubscribeMessage(student.openid, msgData);
+
+                        await ctx.model.Choose.updateMany(
+                            { activityId, studentId },
+                            { subscribeStatus: 'sent' }
+                        );
+
+                        if (selectedStudentIds.has(studentId)) {
+                            successSelected++;
+                        } else {
                             successRejected++;
                         }
                     } catch (err) {
                         failed++;
+                        await ctx.model.Choose.updateMany(
+                            { activityId, studentId },
+                            { subscribeStatus: 'failed' }
+                        );
                         ctx.logger.error(`[sendSubscribeMsg] 推送给学生 ${studentId} 失败:`, err);
                     }
                 }
 
-                const totalSuccess = successSelected + successRejected;
-                if (totalSuccess > 0 && failed === 0) {
+                const hasFailed = await ctx.model.Choose.exists({
+                    activityId,
+                    subscribeStatus: 'failed',
+                });
+
+                if (!hasFailed) {
                     activity.subscribeSent = true;
                     await activity.save();
-                    ctx.logger.info(`[sendSubscribeMsg] 活动 ${activityId} 已标记 subscribeSent=true`);
+                    await this._cleanUnselectedChoose(activityId, selectedStudentIds);
+                    ctx.logger.info(`[sendSubscribeMsg] 活动 ${activityId} 推送全部完成，已清理未选中学生志愿`);
                 } else {
                     ctx.logger.warn(
-                        `[sendSubscribeMsg] 活动 ${activityId} 未标记已推送（success=${totalSuccess}, failed=${failed}），下次将继续重试`
+                        `[sendSubscribeMsg] 活动 ${activityId} 仍有失败记录，下次将继续重试`
                     );
                 }
 
@@ -99,6 +131,18 @@ class SendSubscribeMsg extends Subscription {
         } catch (err) {
             ctx.logger.error('[sendSubscribeMsg] 定时任务执行出错:', err);
         }
+    }
+
+    async _cleanUnselectedChoose(activityId, selectedStudentIds) {
+        const { ctx } = this;
+        const selectedArr = [...selectedStudentIds];
+        const result = await ctx.model.Choose.deleteMany({
+            activityId,
+            studentId: { $nin: selectedArr },
+        });
+        ctx.logger.info(
+            `[sendSubscribeMsg] 活动 ${activityId} 清理未选中学生志愿 ${result.deletedCount} 条`
+        );
     }
 }
 

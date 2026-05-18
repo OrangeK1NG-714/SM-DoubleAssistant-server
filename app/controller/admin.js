@@ -77,6 +77,21 @@ class AdminController extends Controller {
         }
     }
 
+    async deleteUser() {
+        const { ctx, service } = this;
+        try {
+            const { id } = ctx.request.body;
+            if (!id || !ctx.isValidObjectId(id)) {
+                return ctx.send([], 400, '缺少参数或ID格式不正确');
+            }
+            const res = await service.admin.deleteUser(id);
+            ctx.send([], res.code, res.msg);
+        } catch (err) {
+            ctx.logger.error('deleteUser error:', err);
+            ctx.send([], 500, '服务器错误');
+        }
+    }
+
     async updateActivity() {
         const { ctx, service } = this;
         try {
@@ -263,6 +278,21 @@ class AdminController extends Controller {
             ctx.send(res, 200, 'success');
         } catch (err) {
             ctx.logger.error('getFinalList error:', err);
+            ctx.send([], 500, '服务器错误');
+        }
+    }
+
+    async addFinal() {
+        const { ctx, service } = this;
+        try {
+            const { activityId, studentId, teacherId } = ctx.request.body;
+            if (!activityId || !studentId || !teacherId) {
+                return ctx.send([], 400, '缺少必填参数 activityId/studentId/teacherId');
+            }
+            const res = await service.admin.addFinal(activityId, studentId, teacherId);
+            ctx.send([], res.code, res.msg);
+        } catch (err) {
+            ctx.logger.error('addFinal error:', err);
             ctx.send([], 500, '服务器错误');
         }
     }
