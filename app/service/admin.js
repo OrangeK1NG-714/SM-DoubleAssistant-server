@@ -2,6 +2,7 @@
 
 const Service = require('egg').Service;
 const bcrypt = require('bcryptjs');
+const mongoose = require('mongoose');
 const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
@@ -78,7 +79,11 @@ class AdminService extends Service {
 
     async deleteUser(id) {
         const { ctx } = this;
-        const user = await ctx.model.User.findById(id);
+        const idConditions = [id];
+        if (mongoose.Types.ObjectId.isValid(id)) {
+            idConditions.push(new mongoose.Types.ObjectId(id));
+        }
+        const user = await ctx.model.Userinfo.collection.findOne({ _id: { $in: idConditions } });
         if (!user) {
             return { code: 400, msg: '用户不存在' };
         }
@@ -86,7 +91,7 @@ class AdminService extends Service {
             return { code: 400, msg: '不允许删除管理员账号' };
         }
         const { username, role } = user;
-        await ctx.model.User.findByIdAndDelete(id);
+        await ctx.model.Userinfo.collection.deleteOne({ _id: user._id });
 
         const uploadDir = this.app.config.uploadDir;
 

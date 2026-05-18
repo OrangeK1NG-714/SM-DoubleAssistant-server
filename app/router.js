@@ -84,4 +84,9 @@ module.exports = app => {
 
   // AI 推荐导师
   router.get('/api/student/recommendTeachers', app.middleware.jwt(), controller.ai.recommendTeachers)
+
+  // AI 画像管理（管理员）
+  router.get('/api/admin/getTeacherProfiles', app.middleware.jwt({ requiredRole: 'admin' }), controller.ai.getTeacherProfiles)
+  router.put('/api/admin/updateTeacherProfile', app.middleware.jwt({ requiredRole: 'admin' }), controller.ai.updateTeacherProfile)
+  router.post('/api/admin/reloadTeacherProfiles', app.middleware.jwt({ requiredRole: 'admin' }), controller.ai.reloadProfiles)
 };

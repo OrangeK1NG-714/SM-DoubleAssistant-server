@@ -5,15 +5,32 @@ const fs = require('fs');
 const fsp = fs.promises;
 
 const DIRECTION_KEYWORDS = {
-    前端开发: ['前端', 'HTML5', '交互设计', '交互动画', '用户体验', '产品设计', 'UI', '可视化', '数据可视化', '移动应用', '移动开发', '多媒体', '数字媒体', '图形学', '计算机图形'],
-    后端开发: ['后端', '服务器', '系统开发', '数据库', '网络', '分布式', '云计算', 'Java', 'C语言', 'C++', 'Python', '程序设计', '软件开发', '计算机网络', '信息安全', '嵌入式'],
-    测试开发: ['测试', '白盒测试', '软件测试', '程序设计', '软件开发', 'Python', 'Java', 'C语言', '算法', '数据结构', '系统开发', '自动化'],
-    UI设计: ['UI设计', '视觉设计', '交互设计', '用户体验', '产品设计', '品牌设计', '图形', '色彩', '动漫', '数字媒体', '图像处理', '非遗', '数字化', '动画'],
-    产品经理: ['产品设计', '产品开发', '互联网产品', '用户体验', '交互设计', '品牌', '数字产品', 'UI', '前端', '数据分析', '项目管理'],
-    游戏策划: ['游戏策划', '游戏设计', '游戏开发', '虚拟现实', 'VR', '数字媒体', 'UE', '3D', '动画', '交互', '数字视频', '多媒体'],
-    游戏开发: ['游戏开发', '游戏设计', 'UE', '3D', '虚拟现实', 'VR', 'C++', 'C语言', '程序设计', '算法', '图形学', '计算机图形', '仿真', '引擎'],
-    视频剪辑: ['视频剪辑', '影视', '短视频', '视频编导', '影视后期', '新媒体', '数字媒体', '媒体技术', '动画', '图像处理', '视觉', '非遗数字化'],
-    视频编导: ['视频编导', '影视', '短视频', '视频剪辑', '影视后期', '新媒体', '数字媒体', '媒体技术', '策划', '动画', '数字视频'],
+    前端开发工程师: ['前端', 'HTML5', '交互设计', '交互动画', '用户体验', 'UI', '可视化', '数据可视化', '移动应用', '移动开发', '多媒体', '数字媒体', '动画', '图形学'],
+    后端开发工程师: ['后端', '服务器', '系统开发', '数据库', '网络', '分布式', 'Java', 'C语言', 'C++', '程序设计', '软件开发', '计算机网络', '数据结构', '算法设计'],
+    测试开发工程师: ['测试', '白盒测试', '软件测试', '信息安全', '网络安全', '系统开发', 'C语言', '程序设计', '自动化'],
+    算法工程师: ['算法', '深度学习', '机器学习', '计算机视觉', '自然语言处理', '数据挖掘', 'NLP', '人工智能', '数据分析', '文本挖掘', '姿态估计', '图像处理'],
+    大模型开发工程师: ['大模型', '大语言模型', '多模态', '多智能体', 'Agent', 'NLP', '自然语言处理', '人工智能', '深度学习', '知识图谱'],
+    UI设计师: ['UI设计', '视觉设计', '交互设计', '用户体验', '产品设计', '品牌设计', '图形', '色彩', '动漫', '数字媒体', '图像处理', '数字化', '动画'],
+    产品经理: ['产品设计', '产品开发', '互联网产品', '用户体验', '交互设计', '品牌', '数字产品', 'UI', '数据分析', '项目管理'],
+    游戏开发工程师: ['游戏策划', '游戏设计', '游戏开发', '游戏场景', '虚拟现实', 'VR', 'UE', '3D', '动画', '数字视频', '多媒体', 'C++', '图形学', '仿真', '引擎'],
+    大数据工程师: ['大数据', '数据挖掘', '数据分析', '数据可视化', '机器学习', '数据处理', 'Python', '算法'],
+    云计算工程师: ['云计算', '分布式', '系统开发', '后端', '网络', '服务器', '计算机网络', '大数据', '智慧城市', '智慧医疗'],
+    影视后期制作师: ['视频剪辑', '影视', '短视频', '视频编导', '影视后期', '新媒体', '数字媒体', '媒体技术', '动画', '图像处理', '视觉', '策划', '数字视频'],
+};
+
+const DIRECTION_ALIASES = {
+    前端开发: '前端开发工程师',
+    后端开发: '后端开发工程师',
+    测试开发: '测试开发工程师',
+    'UI设计': 'UI设计师',
+    产品设计: '产品经理',
+    游戏策划: '游戏开发工程师',
+    游戏开发: '游戏开发工程师',
+    游戏设计与开发: '游戏开发工程师',
+    视频剪辑: '影视后期制作师',
+    视频编导: '影视后期制作师',
+    影视与新媒体: '影视后期制作师',
+    人工智能与大数据: '算法工程师',
 };
 
 let _cachedProfiles = null;
@@ -23,6 +40,7 @@ function classifyStudentDirection(direction) {
     if (!direction) return 'general';
     const d = direction.trim();
     if (DIRECTION_KEYWORDS[d]) return d;
+    if (DIRECTION_ALIASES[d]) return DIRECTION_ALIASES[d];
     const dLower = d.toLowerCase();
     for (const key of Object.keys(DIRECTION_KEYWORDS)) {
         if (dLower.includes(key.toLowerCase()) || key.toLowerCase().includes(dLower)) return key;
@@ -88,6 +106,56 @@ class AiService extends Service {
         _cachedProfiles = profileMap;
         _cachedProfilesPath = csvPath;
         return profileMap;
+    }
+
+    clearProfileCache() {
+        _cachedProfiles = null;
+        _cachedProfilesPath = null;
+    }
+
+    async getTeacherProfiles() {
+        const profileMap = await this._loadTeacherProfiles();
+        return Object.entries(profileMap).map(([name, data]) => ({
+            name,
+            research: data.research || '',
+            teaching: data.teaching || '',
+        }));
+    }
+
+    async updateTeacherProfile(name, research, teaching) {
+        const csvPath = this.app.config.aiModel.teacherDataPath;
+        if (!csvPath || !fs.existsSync(csvPath)) {
+            throw new Error('CSV 文件不存在');
+        }
+
+        const content = await fsp.readFile(csvPath, 'utf-8');
+        const lines = content.split('\n').filter(l => l.trim());
+        if (lines.length < 2) throw new Error('CSV 文件格式错误');
+
+        const headers = lines[0].replace(/^﻿/, '');
+        const headerCols = headers.split(',');
+        const nameIdx = headerCols.findIndex(h => h.includes('姓名'));
+        if (nameIdx === -1) throw new Error('CSV 缺少姓名列');
+
+        let found = false;
+        for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split(',');
+            if ((cols[nameIdx] || '').trim() === name.trim()) {
+                cols[1] = research;
+                cols[2] = teaching;
+                lines[i] = cols.join(',');
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            lines.push(`${name},${research},${teaching}`);
+        }
+
+        await fsp.writeFile(csvPath, lines.join('\n'), 'utf-8');
+        this.clearProfileCache();
+        return found ? 'updated' : 'added';
     }
 
     async recommendTeachers(studentId, activityId) {

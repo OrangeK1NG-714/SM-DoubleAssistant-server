@@ -24,6 +24,51 @@ class AiController extends Controller {
       ctx.send([], 500, 'AI 推荐失败，请稍后重试');
     }
   }
+
+  async getTeacherProfiles() {
+    const { ctx, service } = this;
+    try {
+      const profiles = await service.ai.getTeacherProfiles();
+      ctx.send(profiles, 200, '获取成功');
+    } catch (err) {
+      ctx.logger.error('[AI getTeacherProfiles] error:', err);
+      ctx.send([], 500, '获取失败');
+    }
+  }
+
+  async updateTeacherProfile() {
+    const { ctx, service } = this;
+    const { name, research, teaching } = ctx.request.body;
+
+    if (!name) {
+      return ctx.send(null, 400, '缺少老师姓名');
+    }
+
+    try {
+      const action = await service.ai.updateTeacherProfile(
+        name,
+        research || '',
+        teaching || ''
+      );
+      service.ai.clearProfileCache();
+      ctx.send({ action }, 200, action === 'updated' ? '更新成功' : '新增成功');
+    } catch (err) {
+      ctx.logger.error('[AI updateTeacherProfile] error:', err);
+      ctx.send(null, 500, '更新失败: ' + err.message);
+    }
+  }
+
+  async reloadProfiles() {
+    const { ctx, service } = this;
+    try {
+      service.ai.clearProfileCache();
+      const profiles = await service.ai.getTeacherProfiles();
+      ctx.send({ count: profiles.length }, 200, '缓存已清除，重新加载了 ' + profiles.length + ' 位老师的画像');
+    } catch (err) {
+      ctx.logger.error('[AI reloadProfiles] error:', err);
+      ctx.send(null, 500, '重载失败');
+    }
+  }
 }
 
 module.exports = AiController;

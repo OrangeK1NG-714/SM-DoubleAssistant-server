@@ -206,7 +206,7 @@ class StdinfoController extends Controller {
             }
             const result = await service.stdinfo.getStudentResume(studentId);
             if (result.code !== 200) {
-                return ctx.send([], result.code, result.msg);
+                return ctx.send([], 200, result.msg);
             }
             ctx.attachment(result.fileName);
             ctx.set('Content-Type', result.contentType);

@@ -39,8 +39,7 @@ class SendSubscribeMsg extends Subscription {
                 const pendingStudentIds = [...studentIdSet];
 
                 if (pendingStudentIds.length === 0) {
-                    activity.subscribeSent = true;
-                    await activity.save();
+                    await ctx.model.Activity.findByIdAndUpdate(activityId, { subscribeSent: true });
                     await this._cleanUnselectedChoose(activityId, selectedStudentIds);
                     ctx.logger.info(`[sendSubscribeMsg] 活动 ${activityId} 无待推送学生，已标记完成并清理志愿`);
                     continue;
@@ -54,6 +53,8 @@ class SendSubscribeMsg extends Subscription {
                 const teachers = await ctx.model.Teacher.find({ teacherId: { $in: teacherIdsNeeded } });
                 const teacherMap = {};
                 teachers.forEach(t => { teacherMap[t.teacherId] = t; });
+
+                const truncate = (str, max = 20) => str && str.length > max ? str.slice(0, max) : str;
 
                 let successSelected = 0, successRejected = 0, skipped = 0, failed = 0;
 
@@ -71,17 +72,17 @@ class SendSubscribeMsg extends Subscription {
                             const teacher = finalRecord ? teacherMap[finalRecord.teacherId] : null;
                             const teacherName = teacher ? teacher.name : '导师';
                             msgData = {
-                                thing1: { value: activity.name },
+                                thing1: { value: truncate(activity.name) },
                                 time2: { value: now.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }) },
-                                thing3: { value: `${teacherName} 老师已选择你` },
-                                thing4: { value: '请登录系统查看最终结果，有疑问请找管理员咨询' },
+                                thing3: { value: truncate(`${teacherName} 老师已选择你`) },
+                                thing4: { value: '请登录系统查看结果，有疑问联系管理员' },
                             };
                         } else {
                             msgData = {
-                                thing1: { value: activity.name },
+                                thing1: { value: truncate(activity.name) },
                                 time2: { value: now.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }) },
                                 thing3: { value: '很遗憾，本次未被导师选中' },
-                                thing4: { value: '请关注补选时间，有疑问请找管理员咨询' },
+                                thing4: { value: '请关注补选时间，有疑问联系管理员' },
                             };
                         }
 
@@ -113,8 +114,7 @@ class SendSubscribeMsg extends Subscription {
                 });
 
                 if (!hasFailed) {
-                    activity.subscribeSent = true;
-                    await activity.save();
+                    await ctx.model.Activity.findByIdAndUpdate(activityId, { subscribeSent: true });
                     await this._cleanUnselectedChoose(activityId, selectedStudentIds);
                     ctx.logger.info(`[sendSubscribeMsg] 活动 ${activityId} 推送全部完成，已清理未选中学生志愿`);
                 } else {

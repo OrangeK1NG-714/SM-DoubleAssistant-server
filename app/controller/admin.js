@@ -439,7 +439,7 @@ class AdminController extends Controller {
             ctx.send([], res.code, res.msg);
         } catch (err) {
             ctx.logger.error('uploadTeacherResume error:', err);
-            ctx.send([], 500, '上传失败，请重试');
+            ctx.send([], 500, '上传失败：' + (err.message || '未知错误'));
         }
     }
 

@@ -7,10 +7,12 @@ const path = require('path');
 class StdinfoService extends Service {
     async writeUserMsg(name, gender, studentId, grade, classNum, phone, gpa, direction, qq, wechat) {
         const data = { name, gender, studentId, grade, classNum, phone, gpa, direction, qq, wechat };
-        let student = await this.ctx.model.Student.findOne({ studentId });
+        const student = await this.ctx.model.Student.findOneAndUpdate(
+            { studentId },
+            { data },
+            { new: true }
+        );
         if (student) {
-            student.data = data;
-            await student.save();
             return { code: 200, msg: '学生信息已更新', data: student };
         }
         const newStudent = await this.ctx.model.Student.create({
@@ -25,10 +27,13 @@ class StdinfoService extends Service {
         if (!student) {
             return { code: 404, msg: '学生不存在' };
         }
-        Object.assign(student.data, { name, gender, studentId });
-        student.markModified('data');
-        await student.save();
-        return { code: 200, msg: '学生信息已更新', data: student };
+        const updatedData = Object.assign({}, student.data, { name, gender, studentId });
+        const result = await this.ctx.model.Student.findOneAndUpdate(
+            { studentId },
+            { data: updatedData },
+            { new: true }
+        );
+        return { code: 200, msg: '学生信息已更新', data: result };
     }
 
     async selectTeacher(studentId, teacherId, order, isChose, activityId, subscribeTemplateId = '', subscribeStatus = '') {
@@ -62,12 +67,14 @@ class StdinfoService extends Service {
     async saveOpenid(code, studentId) {
         try {
             const openid = await this.service.wechat.getOpenid(code);
-            const student = await this.ctx.model.Student.findOne({ studentId });
-            if (!student) {
+            const result = await this.ctx.model.Student.findOneAndUpdate(
+                { studentId },
+                { openid },
+                { new: true }
+            );
+            if (!result) {
                 return { code: 404, msg: '学生不存在' };
             }
-            student.openid = openid;
-            await student.save();
             return { code: 200, msg: 'openid 保存成功' };
         } catch (error) {
             this.ctx.logger.error('[saveOpenid] 错误:', error);

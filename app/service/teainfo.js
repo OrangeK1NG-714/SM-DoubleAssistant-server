@@ -13,9 +13,12 @@ class TeainfoService extends Service {
         if (!choose) {
             return { code: 404, msg: '选择记录不存在' };
         }
-        choose.isChose = !choose.isChose;
-        await choose.save();
-        return { code: 200, msg: '学生选老师选项已修改', data: choose };
+        const updated = await this.ctx.model.Choose.findOneAndUpdate(
+            { studentId, teacherId, activityId },
+            { isChose: !choose.isChose },
+            { new: true }
+        );
+        return { code: 200, msg: '学生选老师选项已修改', data: updated };
     }
 
     async selectStudent(studentId, teacherId, activityId, data, order) {
@@ -42,8 +45,10 @@ class TeainfoService extends Service {
             return { code: 404, msg: '选择记录不存在' };
         }
         const final = await this.ctx.model.Final.create({ studentId, teacherId, activityId, data, order });
-        choose.isChose = true;
-        await choose.save();
+        await this.ctx.model.Choose.findOneAndUpdate(
+            { studentId, teacherId, activityId },
+            { isChose: true }
+        );
         return { code: 200, msg: '老师已选学生', data: final };
     }
 
@@ -53,8 +58,10 @@ class TeainfoService extends Service {
             return { code: 404, msg: '选择记录不存在' };
         }
         await this.ctx.model.Final.deleteOne({ studentId, teacherId, activityId });
-        choose.isChose = false;
-        await choose.save();
+        await this.ctx.model.Choose.findOneAndUpdate(
+            { studentId, teacherId, activityId },
+            { isChose: false }
+        );
         return { code: 200, msg: '老师取消选择学生' };
     }
 
