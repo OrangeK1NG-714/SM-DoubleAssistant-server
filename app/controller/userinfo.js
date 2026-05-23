@@ -53,6 +53,9 @@ class UserinfoController extends Controller {
             }
             const res = await service.userinfo.getUserDetail(username, role);
             ctx.send(res.data || [], res.code, res.msg || 'success');
+            if (res.isEmpty !== undefined) {
+                ctx.body.isEmpty = res.isEmpty;
+            }
         } catch (err) {
             ctx.logger.error('getUserDetail error:', err);
             ctx.send([], 500, '服务器错误');
