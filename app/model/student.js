@@ -1,12 +1,12 @@
 module.exports = app => {
-    const mongoose = app.mongoose;
-    mongoose.pluralize(null);
-    const Schema = mongoose.Schema;
-    const StudentSchema = new Schema({
-        data: { type: Object, default: {} },
-        studentId: { type: String, default: '', unique: true },
-        mentor: { type: String, default: '' },
-        openid: { type: String, default: '' },
-    }, { versionKey: false });
-    return mongoose.model('Student', StudentSchema);
+  const mongoose = app.mongoose;
+  mongoose.pluralize(null);
+  const Schema = mongoose.Schema;
+  const StudentSchema = new Schema({
+    data: { type: Object, default: {} },
+    studentId: { type: String, default: '', unique: true },
+    mentor: { type: String, default: '' },
+    openid: { type: String, default: '' },
+  }, { versionKey: false });
+  return mongoose.model('Student', StudentSchema);
 };

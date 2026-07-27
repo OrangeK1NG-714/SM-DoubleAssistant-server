@@ -1,4 +1,4 @@
-const path = require('path');
+const path = require('node:path');
 
 require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
 
@@ -7,12 +7,25 @@ module.exports = appInfo => {
 
   config.keys = appInfo.name + '_1751160937705_7579';
 
+  config.cluster = {
+    listen: {
+      hostname: '127.0.0.1',
+    },
+  };
+
   config.middleware = [];
+
+  // Egg 3 ships three HTTP clients. Force the Node 20-compatible client,
+  // backed by urllib 4 / Undici 7, so outbound WeChat calls never fall back
+  // to the vulnerable legacy Undici 5 chain.
+  config.httpclient = {
+    useHttpClientNext: true,
+  };
 
   config.multipart = {
     mode: 'file',
     fileSize: '50mb',
-    whitelist: ['.pdf', '.doc', '.docx', '.jpg', '.png'],
+    whitelist: [ '.pdf', '.doc', '.docx', '.jpg', '.png' ],
   };
 
   config.onerror = {
@@ -71,6 +84,10 @@ module.exports = appInfo => {
     expiresIn: 60 * 60 * 24 * 3,
   };
 
+  config.internalDashboardStats = {
+    token: process.env.SM_DOUBLEASSISTANT_INTERNAL_STATS_TOKEN || '',
+  };
+
   config.cors = {
     origin(ctx) {
       const allowList = [
@@ -90,7 +107,7 @@ module.exports = appInfo => {
     },
     allowMethods: 'GET,HEAD,PUT,POST,DELETE,PATCH',
     credentials: true,
-    exposeHeaders: ['Authorization'],
+    exposeHeaders: [ 'Authorization' ],
   };
 
   config.uploadDir = process.env.UPLOAD_DIR || path.join(appInfo.baseDir, 'app/public/uploads');

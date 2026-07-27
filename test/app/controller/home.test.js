@@ -7,6 +7,7 @@ describe('test/app/controller/home.test.js', () => {
   it('should assert', async () => {
     const pkg = require('../../../package.json');
     assert(app.config.keys.startsWith(pkg.name));
+    assert.equal(app.config.cluster.listen.hostname, '127.0.0.1');
   });
 
   it('should typings exists', async () => {
@@ -17,7 +18,6 @@ describe('test/app/controller/home.test.js', () => {
   it('should GET /', async () => {
     return app.httpRequest()
       .get('/')
-      .expect('hi, egg')
-      .expect(200);
+      .expect(404);
   });
 });

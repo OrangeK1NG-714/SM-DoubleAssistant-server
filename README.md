@@ -130,10 +130,9 @@ SM-DoubleAssistant-server/
 │   ├── config.local.js             # 本地开发配置
 │   ├── config.prod.js              # 生产环境配置
 │   └── plugin.js                   # 插件注册
-├── scripts/
-│   └── reset-passwords.js          # 批量重置密码工具
 ├── openapi.json                    # OpenAPI 3.0.3 接口文档
-├── .env                            # 环境变量
+├── .env.example                    # 无凭据的环境变量模板
+├── .env                            # 本地环境变量（不提交）
 └── package.json
 ```
 
@@ -209,6 +208,12 @@ SM-DoubleAssistant-server/
 ## API 接口
 
 系统提供约 **50 个 RESTful 接口**，统一前缀 `/api/`，除登录接口外均需 JWT 认证。
+
+### 统一看板内部聚合
+
+`GET /api/internal/dashboard-stats?days=1..365` 只供同机 Go 统一看板通过回环地址调用。它要求独立的 `SM_DOUBLEASSISTANT_INTERNAL_STATS_TOKEN` Bearer 令牌（至少 32 字节），只返回活动、参与者、已提交志愿和最终确认的聚合数量，不返回姓名、学号、OpenID、简历或原始志愿记录。
+
+生产 Nginx 必须对公网主机显式返回 404，Go 应直连 `http://127.0.0.1:<port>`。不要把这个端点代理到公网，也不要复用 JWT、MongoDB、微信或看板登录凭据。
 
 ### 用户认证
 
@@ -412,7 +417,7 @@ SM-DoubleAssistant-server/
 
 ### 环境要求
 
-- Node.js >= 18
+- Node.js >= 20
 - MongoDB（本地或远程）
 
 ### 安装 & 启动
@@ -474,3 +479,4 @@ config.mongoose = {
 | `WX_SECRET` | 微信小程序 AppSecret | - |
 | `WX_SUBSCRIBE_TEMPLATE_ID` | 订阅消息模板 ID | - |
 | `WX_MINIPROGRAM_STATE` | 小程序环境（developer/trial/formal） | `developer` |
+| `SM_DOUBLEASSISTANT_INTERNAL_STATS_TOKEN` | 回环看板聚合接口的独立令牌（至少 32 字节） | - |

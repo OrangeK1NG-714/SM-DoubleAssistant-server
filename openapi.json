@@ -154,7 +154,7 @@
                 "type": "object",
                 "required": ["username", "password"],
                 "properties": {
-                  "username": { "type": "string", "description": "用户名（6-10位数字）", "example": "2021001" },
+                  "username": { "type": "string", "description": "登录用户名（3-20位字母或数字）", "example": "admin" },
                   "password": { "type": "string", "description": "密码（6-20位字母和数字）", "example": "abc123" }
                 }
               }

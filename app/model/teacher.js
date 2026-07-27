@@ -1,14 +1,14 @@
 module.exports = app => {
-    const mongoose = app.mongoose;
-    mongoose.pluralize(null);
-    const Schema = mongoose.Schema;
-    const TeacherSchema = new Schema({
-        name: { type: String, default: '' },
-        teacherId: { type: String, default: '', unique: true },
-        msg: { type: String, default: '' },
-        teacherType: { type: String, default: '' },
-        resumeName: { type: String, default: '' },
-        resumePath: { type: String, default: '' },
-    }, { versionKey: false });
-    return mongoose.model('Teacher', TeacherSchema);
+  const mongoose = app.mongoose;
+  mongoose.pluralize(null);
+  const Schema = mongoose.Schema;
+  const TeacherSchema = new Schema({
+    name: { type: String, default: '' },
+    teacherId: { type: String, default: '', unique: true },
+    msg: { type: String, default: '' },
+    teacherType: { type: String, default: '' },
+    resumeName: { type: String, default: '' },
+    resumePath: { type: String, default: '' },
+  }, { versionKey: false });
+  return mongoose.model('Teacher', TeacherSchema);
 };
