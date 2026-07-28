@@ -8,7 +8,7 @@ module.exports = app => {
   // 用户认证
   router.post('/api/admin/register', app.middleware.jwt({ requiredRole: 'admin' }), controller.userinfo.userRegister);
   router.post('/api/user/login', controller.userinfo.userLogin);
-  router.post('/api/user/selfResetPassword', controller.userinfo.selfResetPassword);
+  router.post('/api/user/selfResetPassword', app.middleware.jwt(), controller.userinfo.selfResetPassword);
   router.post('/api/user/refreshToken', controller.userinfo.refreshToken);
   router.get('/api/user/detail', app.middleware.jwt(), controller.userinfo.getUserDetail);
   router.get('/api/user/getMyActivities', app.middleware.jwt(), controller.userinfo.getMyActivities);
@@ -23,6 +23,7 @@ module.exports = app => {
 
   // 学生选老师
   router.post('/api/student/selectTeacher', app.middleware.jwt(), controller.stdinfo.selectTeacher);
+  router.post('/api/student/submitTeacherChoices', app.middleware.jwt(), controller.stdinfo.submitTeacherChoices);
   router.get('/api/student/getTeachersForActivity', app.middleware.jwt(), controller.stdinfo.getTeachersForActivity);
   router.get('/api/student/getTeacherList', app.middleware.jwt(), controller.stdinfo.getTeacherListInActivity);
   router.get('/api/student/isInActivity', app.middleware.jwt(), controller.stdinfo.isInActivity);
@@ -50,7 +51,7 @@ module.exports = app => {
 
   // 管理端 - 活动管理
   router.post('/api/admin/addActivity', app.middleware.jwt({ requiredRole: 'admin' }), controller.admin.addActivity);
-  router.get('/api/admin/getActivityList', app.middleware.jwt(), controller.admin.getActivityList);
+  router.get('/api/admin/getActivityList', app.middleware.jwt({ requiredRole: 'admin' }), controller.admin.getActivityList);
   router.get('/api/admin/getActivityDetail', app.middleware.jwt(), controller.admin.getActivityDetail);
   router.put('/api/admin/updateActivity', app.middleware.jwt({ requiredRole: 'admin' }), controller.admin.updateActivity);
   router.delete('/api/admin/deleteActivity', app.middleware.jwt({ requiredRole: 'admin' }), controller.admin.deleteActivity);

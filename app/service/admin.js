@@ -6,14 +6,73 @@ const mongoose = require('mongoose');
 const fs = require('node:fs');
 const fsp = fs.promises;
 const path = require('node:path');
+const { isDuplicateKeyError } = require('../lib/selection-security');
+const {
+  acquireTeacherLock,
+  releaseTeacherLock,
+} = require('../lib/selection-lock');
+const { resolveExistingFileWithin } = require('../lib/safe-path');
 
 const BCRYPT_ROUNDS = 10;
+const FINAL_RESERVATION_MS = 30 * 1000;
 
 function escapeRegExp(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 class AdminService extends Service {
+  async _deleteChoiceGroupsForTeacher(activityId, teacherId) {
+    const { ctx } = this;
+    const query = { teacherId };
+    if (activityId) {
+      query.activityId = String(activityId);
+    }
+    const affected = await ctx.model.Choose.find(
+      query,
+      { activityId: 1, studentId: 1 }
+    );
+    const seen = new Set();
+    const groups = [];
+    for (const item of affected) {
+      const key = `${item.activityId}:${item.studentId}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        groups.push({
+          activityId: item.activityId,
+          studentId: item.studentId,
+        });
+      }
+    }
+    if (groups.length === 0) {
+      return;
+    }
+    await Promise.all([
+      ctx.model.Choose.deleteMany({ $or: groups }),
+      ctx.model.ChoiceSubmission.deleteMany({ $or: groups }),
+    ]);
+  }
+
+  async _cleanupActivityMembership(record) {
+    const { ctx } = this;
+    const activityId = String(record.activityId);
+    if (record.teacherId) {
+      await this._deleteChoiceGroupsForTeacher(activityId, record.teacherId);
+      await Promise.all([
+        ctx.model.Final.deleteMany({ activityId, teacherId: record.teacherId }),
+        ctx.model.FinalReservation.deleteMany({ activityId, teacherId: record.teacherId }),
+        ctx.model.TeacherOperationLock.deleteMany({ activityId, teacherId: record.teacherId }),
+      ]);
+    }
+    if (record.studentId) {
+      await Promise.all([
+        ctx.model.Choose.deleteMany({ activityId, studentId: record.studentId }),
+        ctx.model.ChoiceSubmission.deleteOne({ activityId, studentId: record.studentId }),
+        ctx.model.Final.deleteMany({ activityId, studentId: record.studentId }),
+        ctx.model.FinalReservation.deleteMany({ activityId, studentId: record.studentId }),
+      ]);
+    }
+  }
+
   async addActivity(name, description, startDate, endDate, firstChooseStartDate, firstChooseEndDate, secondChooseStartDate, secondChooseEndDate, thirdChooseStartDate, thirdChooseEndDate, stdChooseStartDate, stdChooseEndDate) {
     const { ctx } = this;
     await ctx.model.Activity.create({ name, description, startDate, endDate, firstChooseStartDate, firstChooseEndDate, secondChooseStartDate, secondChooseEndDate, thirdChooseStartDate, thirdChooseEndDate, stdChooseStartDate, stdChooseEndDate });
@@ -72,7 +131,10 @@ class AdminService extends Service {
     await Promise.all([
       ctx.model.UserInActivity.deleteMany({ activityId }),
       ctx.model.Choose.deleteMany({ activityId }),
+      ctx.model.ChoiceSubmission.deleteMany({ activityId }),
       ctx.model.Final.deleteMany({ activityId }),
+      ctx.model.FinalReservation.deleteMany({ activityId }),
+      ctx.model.TeacherOperationLock.deleteMany({ activityId }),
     ]);
     return { code: 200, msg: '活动删除成功' };
   }
@@ -101,11 +163,12 @@ class AdminService extends Service {
     const uploadDir = this.app.config.uploadDir;
 
     if (role === 'teacher') {
+      await this._deleteChoiceGroupsForTeacher(undefined, username);
       const teacher = await ctx.model.Teacher.findOne({ teacherId: username });
       if (teacher && teacher.resumePath) {
         try {
-          const absPath = path.normalize(path.join(uploadDir, teacher.resumePath));
-          if (absPath.startsWith(path.normalize(uploadDir))) {
+          const absPath = await resolveExistingFileWithin(uploadDir, teacher.resumePath);
+          if (absPath) {
             await fsp.unlink(absPath).catch(() => {});
           }
         } catch (e) {
@@ -115,15 +178,16 @@ class AdminService extends Service {
       await Promise.all([
         ctx.model.Teacher.deleteOne({ teacherId: username }),
         ctx.model.UserInActivity.deleteMany({ teacherId: username }),
-        ctx.model.Choose.deleteMany({ teacherId: username }),
         ctx.model.Final.deleteMany({ teacherId: username }),
+        ctx.model.FinalReservation.deleteMany({ teacherId: username }),
+        ctx.model.TeacherOperationLock.deleteMany({ teacherId: username }),
       ]);
     } else if (role === 'student') {
       const resume = await ctx.model.Resume.findOne({ studentId: username });
       if (resume && resume.filePath) {
         try {
-          const absPath = path.normalize(path.join(uploadDir, resume.filePath));
-          if (absPath.startsWith(path.normalize(uploadDir))) {
+          const absPath = await resolveExistingFileWithin(uploadDir, resume.filePath);
+          if (absPath) {
             await fsp.unlink(absPath).catch(() => {});
           }
         } catch (e) {
@@ -135,7 +199,9 @@ class AdminService extends Service {
         ctx.model.Resume.deleteOne({ studentId: username }),
         ctx.model.UserInActivity.deleteMany({ studentId: username }),
         ctx.model.Choose.deleteMany({ studentId: username }),
+        ctx.model.ChoiceSubmission.deleteMany({ studentId: username }),
         ctx.model.Final.deleteMany({ studentId: username }),
+        ctx.model.FinalReservation.deleteMany({ studentId: username }),
       ]);
     }
     return { code: 200, msg: '用户删除成功' };
@@ -254,17 +320,24 @@ class AdminService extends Service {
 
   async deleteUserInActivity(_id) {
     const { ctx } = this;
-    const res = await ctx.model.UserInActivity.findByIdAndDelete(_id);
-    if (!res) {
+    const record = await ctx.model.UserInActivity.findById(_id);
+    if (!record) {
       return { code: 400, msg: '记录不存在' };
     }
+    await this._cleanupActivityMembership(record);
+    await ctx.model.UserInActivity.deleteOne({ _id });
     return { code: 200, msg: '删除成功' };
   }
 
   async batchDeleteUserInActivity(ids) {
-    const { ctx } = this;
-    const result = await ctx.model.UserInActivity.deleteMany({ _id: { $in: ids } });
-    return { successCount: result.deletedCount, failCount: ids.length - result.deletedCount };
+    let successCount = 0;
+    for (const id of ids) {
+      const result = await this.deleteUserInActivity(id);
+      if (result.code === 200) {
+        successCount++;
+      }
+    }
+    return { successCount, failCount: ids.length - successCount };
   }
 
   async getSelectedList(studentId, activityId) {
@@ -281,23 +354,167 @@ class AdminService extends Service {
 
   async deleteSelected(_id) {
     const { ctx } = this;
-    const res = await ctx.model.Choose.findByIdAndDelete(_id);
-    if (!res) {
+    const selected = await ctx.model.Choose.findById(_id);
+    if (!selected) {
       return { code: 400, msg: '记录不存在' };
     }
-    return { code: 200, msg: '删除成功' };
+    await Promise.all([
+      ctx.model.Choose.deleteMany({
+        activityId: selected.activityId,
+        studentId: selected.studentId,
+      }),
+      ctx.model.ChoiceSubmission.deleteOne({
+        activityId: selected.activityId,
+        studentId: selected.studentId,
+      }),
+    ]);
+    return { code: 200, msg: '整组志愿删除成功' };
   }
 
   async addFinal(activityId, studentId, teacherId) {
     const { ctx } = this;
-    const existing = await ctx.model.Final.findOne({ studentId, activityId });
-    if (existing) {
-      return { code: 409, msg: '该学生在此活动中已有录取记录' };
+    const activityKey = String(activityId);
+    const ownerToken = await acquireTeacherLock(ctx.model, activityKey, teacherId);
+    if (!ownerToken) {
+      return { code: 409, msg: '导师录取操作正在处理中，请稍后重试' };
     }
-    const student = await ctx.model.Student.findOne({ studentId });
-    const data = student ? student.data : { studentId };
-    await ctx.model.Final.create({ activityId, studentId, teacherId, data, order: 0 });
-    return { code: 200, msg: '录取记录添加成功' };
+    try {
+      const [ activity, student, studentMembership, teacherMembership, existing ] = await Promise.all([
+        ctx.model.Activity.findById(activityId),
+        ctx.model.Student.findOne({ studentId }),
+        ctx.model.UserInActivity.findOne({ activityId: activityKey, studentId }),
+        ctx.model.UserInActivity.findOne({ activityId: activityKey, teacherId }),
+        ctx.model.Final.findOne({ studentId, activityId: activityKey }),
+      ]);
+      if (!activity) {
+        return { code: 404, msg: '活动不存在' };
+      }
+      if (!student || !studentMembership || !teacherMembership) {
+        return { code: 400, msg: '导师或学生不属于此活动' };
+      }
+      if (existing) {
+        return { code: 409, msg: '该学生在此活动中已有录取记录' };
+      }
+      const quota = Number(teacherMembership.maxSelectNum);
+      if (!Number.isInteger(quota) || quota < 1) {
+        return { code: 409, msg: '导师名额尚未配置' };
+      }
+      const selectedCount = await ctx.model.Final.countDocuments({
+        activityId: activityKey,
+        teacherId,
+      });
+      if (selectedCount >= quota) {
+        return { code: 409, msg: '已达到最大选择人数限制' };
+      }
+
+      const now = new Date();
+      const lockUntil = new Date(now.getTime() + FINAL_RESERVATION_MS);
+      let reservation;
+      let ownsReservation = false;
+      try {
+        reservation = await ctx.model.FinalReservation.create({
+          activityId: activityKey,
+          lockUntil,
+          ownerToken,
+          status: 'processing',
+          studentId,
+          teacherId,
+          updatedAt: now,
+        });
+        ownsReservation = true;
+      } catch (error) {
+        if (!isDuplicateKeyError(error)) {
+          throw error;
+        }
+        reservation = await ctx.model.FinalReservation.findOne({
+          activityId: activityKey,
+          studentId,
+        });
+      }
+      if (!ownsReservation) {
+        if (!reservation || reservation.status === 'committed') {
+          return { code: 409, msg: '该学生在此活动中已有录取记录' };
+        }
+        if (!reservation.lockUntil || new Date(reservation.lockUntil) > now) {
+          return { code: 409, msg: '该学生录取正在处理中，请稍后重试' };
+        }
+        reservation = await ctx.model.FinalReservation.findOneAndUpdate(
+          {
+            _id: reservation._id,
+            lockUntil: reservation.lockUntil,
+            status: 'processing',
+          },
+          {
+            $set: {
+              lockUntil,
+              ownerToken,
+              teacherId,
+              updatedAt: now,
+            },
+          },
+          { new: true }
+        );
+        ownsReservation = Boolean(reservation);
+        if (!ownsReservation) {
+          return { code: 409, msg: '该学生录取正在处理中，请稍后重试' };
+        }
+      }
+
+      let createdFinal = false;
+      try {
+        await ctx.model.Final.create({
+          activityId: activityKey,
+          data: student.data || {},
+          order: 0,
+          studentId,
+          teacherId,
+        });
+        createdFinal = true;
+        const committed = await ctx.model.FinalReservation.updateOne(
+          {
+            _id: reservation._id,
+            ownerToken,
+            status: 'processing',
+          },
+          {
+            $set: {
+              lockUntil: now,
+              ownerToken: '',
+              status: 'committed',
+              updatedAt: new Date(),
+            },
+          }
+        );
+        if (committed.modifiedCount !== 1) {
+          throw new Error('admin final reservation ownership lost');
+        }
+        return { code: 201, msg: '录取记录添加成功' };
+      } catch (error) {
+        if (createdFinal) {
+          await ctx.model.Final.deleteOne({
+            activityId: activityKey,
+            studentId,
+            teacherId,
+          });
+        }
+        if (ownsReservation) {
+          await ctx.model.FinalReservation.deleteOne({
+            _id: reservation._id,
+            ownerToken,
+          });
+        }
+        throw error;
+      }
+    } finally {
+      await releaseTeacherLock(
+        ctx.model,
+        activityKey,
+        teacherId,
+        ownerToken
+      ).catch(error => {
+        ctx.logger.error('release admin final lock failed:', error);
+      });
+    }
   }
 
   async getFinalList(studentId, teacherId, activityId) {
@@ -339,7 +556,10 @@ class AdminService extends Service {
 
   async resetVolunteer(activityId, studentId) {
     const { ctx } = this;
-    await ctx.model.Choose.deleteMany({ activityId, studentId });
+    await Promise.all([
+      ctx.model.Choose.deleteMany({ activityId, studentId }),
+      ctx.model.ChoiceSubmission.deleteOne({ activityId, studentId }),
+    ]);
     return { code: 200, msg: '志愿重置成功' };
   }
 
@@ -387,8 +607,8 @@ class AdminService extends Service {
 
     if (teacher.resumePath && teacher.resumePath !== resumePath) {
       try {
-        const oldFilePath = path.normalize(path.join(uploadDir, teacher.resumePath));
-        if (oldFilePath.startsWith(path.normalize(uploadDir))) {
+        const oldFilePath = await resolveExistingFileWithin(uploadDir, teacher.resumePath);
+        if (oldFilePath) {
           await fsp.unlink(oldFilePath).catch(() => {});
         }
       } catch (fileError) {
@@ -426,11 +646,8 @@ class AdminService extends Service {
       return { code: 404, msg: '老师未上传简历' };
     }
 
-    const filePath = path.join(uploadDir, teacher.resumePath);
-
-    try {
-      await fsp.access(filePath);
-    } catch {
+    const filePath = await resolveExistingFileWithin(uploadDir, teacher.resumePath);
+    if (!filePath) {
       return { code: 404, msg: '简历文件不存在' };
     }
 

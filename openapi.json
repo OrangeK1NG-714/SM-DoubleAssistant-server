@@ -374,11 +374,11 @@
         }
       }
     },
-    "/api/student/selectTeacher": {
+    "/api/student/submitTeacherChoices": {
       "post": {
         "tags": ["学生"],
-        "summary": "学生选择导师",
-        "description": "学生提交志愿选择导师",
+        "summary": "批量提交三个导师志愿",
+        "description": "服务端校验本人身份、活动成员、时间窗、导师归属、配额、顺序和重复项；相同请求可幂等重试",
         "security": [{ "BearerAuth": [] }],
         "requestBody": {
           "required": true,
@@ -386,15 +386,23 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["studentId", "teacherId", "order", "activityId", "createTime"],
+                "required": ["studentId", "activityId", "choices"],
                 "properties": {
                   "studentId": { "type": "string", "description": "学号" },
-                  "teacherId": { "type": "string", "description": "教师工号" },
-                  "order": { "type": "integer", "description": "志愿序号（1/2/3）" },
-                  "isChose": { "type": "boolean", "description": "是否被选中", "default": false },
                   "activityId": { "type": "string", "description": "活动ID（ObjectId）" },
-                  "createTime": { "type": "string", "format": "date-time", "description": "创建时间" },
-                  "subscribeTemplateId": { "type": "string", "description": "微信订阅模板ID" },
+                  "choices": {
+                    "type": "array",
+                    "minItems": 3,
+                    "maxItems": 3,
+                    "items": {
+                      "type": "object",
+                      "required": ["teacherId", "order"],
+                      "properties": {
+                        "teacherId": { "type": "string", "description": "教师工号" },
+                        "order": { "type": "integer", "minimum": 1, "maximum": 3 }
+                      }
+                    }
+                  },
                   "subscribeStatus": { "type": "string", "description": "订阅状态" }
                 }
               }
@@ -403,7 +411,7 @@
         },
         "responses": {
           "200": {
-            "description": "选择成功",
+            "description": "整批提交成功或相同请求已提交",
             "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
           }
         }
@@ -586,8 +594,8 @@
     "/api/student/updateTeacher": {
       "put": {
         "tags": ["导师"],
-        "summary": "导师确认选择学生",
-        "description": "导师修改学生的Choose记录中的isChose状态",
+        "summary": "已停用的单步状态接口",
+        "description": "固定返回 410；请使用 /api/teacher/selectStudentAndUpdate",
         "security": [{ "BearerAuth": [] }],
         "requestBody": {
           "required": true,
@@ -606,8 +614,8 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "操作成功",
+          "410": {
+            "description": "接口已停用",
             "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
           }
         }
@@ -616,8 +624,8 @@
     "/api/teacher/selectStudent": {
       "post": {
         "tags": ["导师"],
-        "summary": "导师选择学生（最终选择）",
-        "description": "导师将学生添加到Final表中，确认最终选择",
+        "summary": "已停用的单步录取接口",
+        "description": "固定返回 410；请使用 /api/teacher/selectStudentAndUpdate",
         "security": [{ "BearerAuth": [] }],
         "requestBody": {
           "required": true,
@@ -638,8 +646,8 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "选择成功",
+          "410": {
+            "description": "接口已停用",
             "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
           }
         }
@@ -648,8 +656,8 @@
     "/api/teacher/cancelSelect": {
       "delete": {
         "tags": ["导师"],
-        "summary": "导师取消选择学生",
-        "description": "导师取消对某学生的最终选择",
+        "summary": "已停用的单步取消接口",
+        "description": "固定返回 410；请使用 /api/teacher/cancelSelectAndUpdate",
         "security": [{ "BearerAuth": [] }],
         "parameters": [
           { "name": "studentId", "in": "query", "required": true, "schema": { "type": "string" }, "description": "学号" },
@@ -657,9 +665,76 @@
           { "name": "activityId", "in": "query", "required": true, "schema": { "type": "string" }, "description": "活动ID" }
         ],
         "responses": {
-          "200": {
-            "description": "取消成功",
+          "410": {
+            "description": "接口已停用",
             "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BaseResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/teacher/selectStudentAndUpdate": {
+      "post": {
+        "tags": ["导师"],
+        "summary": "一致性录取学生",
+        "description": "以 Token 中的导师身份为准，服务端校验活动成员、志愿轮次时间窗和配额，并从学生档案生成 Final 数据",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["studentId", "teacherId", "activityId"],
+                "properties": {
+                  "studentId": { "type": "string" },
+                  "teacherId": { "type": "string" },
+                  "activityId": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "相同录取已存在"
+          },
+          "201": {
+            "description": "录取成功"
+          },
+          "409": {
+            "description": "配额、并发或学生已被其他导师录取冲突"
+          }
+        }
+      }
+    },
+    "/api/teacher/cancelSelectAndUpdate": {
+      "post": {
+        "tags": ["导师"],
+        "summary": "一致性取消录取",
+        "description": "以 Token 中的导师身份为准，服务端校验活动成员和志愿轮次时间窗，并对失败进行补偿",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["studentId", "teacherId", "activityId"],
+                "properties": {
+                  "studentId": { "type": "string" },
+                  "teacherId": { "type": "string" },
+                  "activityId": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "取消成功或原本未录取"
+          },
+          "409": {
+            "description": "并发冲突或该学生由其他导师录取"
           }
         }
       }
@@ -1205,7 +1280,7 @@
       "delete": {
         "tags": ["志愿"],
         "summary": "删除选择志愿（管理员）",
-        "description": "管理员删除某条Choose记录",
+        "description": "根据任一 Choose 记录定位学生和活动，并整组删除三个志愿及其幂等锁",
         "security": [{ "BearerAuth": [] }],
         "requestBody": {
           "required": true,

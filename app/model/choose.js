@@ -9,10 +9,12 @@ module.exports = app => {
     isChose: { type: Boolean, required: true },
     activityId: { type: String, required: true },
     createTime: { type: Date, required: true },
+    submissionId: { type: String, default: '' },
     subscribeTemplateId: { type: String, default: '' },
     subscribeStatus: { type: String, default: '' },
   }, { versionKey: false });
   ChooseSchema.index({ studentId: 1, activityId: 1 });
   ChooseSchema.index({ teacherId: 1, activityId: 1 });
+  ChooseSchema.index({ submissionId: 1 }, { sparse: true });
   return mongoose.model('Choose', ChooseSchema);
 };

@@ -2,6 +2,14 @@
 
 const Controller = require('egg').Controller;
 const jwt = require('jsonwebtoken');
+const {
+  hasActivityAccess,
+  isAdmin,
+  isSelfOrAdmin,
+  hasValidIdentity,
+  resolveOwnIdentity,
+} = require('../lib/access-control');
+const { isValidIdentifier } = require('../lib/selection-security');
 
 class UserinfoController extends Controller {
   async userRegister() {
@@ -47,11 +55,11 @@ class UserinfoController extends Controller {
   async getUserDetail() {
     const { ctx, service } = this;
     try {
-      const { username, role } = ctx.query;
-      if (!username || !role) {
-        return ctx.send([], 400, '缺少参数 username 或 role');
+      const identity = resolveOwnIdentity(ctx.auth, ctx.query.username, ctx.query.role);
+      if (!identity) {
+        return ctx.send([], 403, '无权访问他人信息');
       }
-      const res = await service.userinfo.getUserDetail(username, role);
+      const res = await service.userinfo.getUserDetail(identity.username, identity.role);
       ctx.send(res.data || [], res.code, res.msg || 'success');
       if (res.isEmpty !== undefined) {
         ctx.body.isEmpty = res.isEmpty;
@@ -66,8 +74,11 @@ class UserinfoController extends Controller {
     const { ctx, service } = this;
     try {
       const { activityId } = ctx.query;
-      if (!activityId) {
+      if (!activityId || !ctx.isValidObjectId(activityId)) {
         return ctx.send([], 400, '缺少参数 activityId');
+      }
+      if (!isAdmin(ctx.auth)) {
+        return ctx.send([], 403, '仅管理员可查看全部志愿');
       }
       const res = await service.userinfo.getChooseList(activityId);
       ctx.send(res, 200, 'success');
@@ -81,8 +92,18 @@ class UserinfoController extends Controller {
     const { ctx, service } = this;
     try {
       const { teacherId, activityId } = ctx.query;
-      if (!teacherId || !activityId) {
+      if (
+        !isValidIdentifier(teacherId)
+        || !activityId
+        || !ctx.isValidObjectId(activityId)
+      ) {
         return ctx.send([], 400, '缺少参数 teacherId 或 activityId');
+      }
+      if (!isSelfOrAdmin(ctx.auth, 'teacher', teacherId)) {
+        return ctx.send([], 403, '无权查看其他导师的志愿数据');
+      }
+      if (!await hasActivityAccess(ctx.model, ctx.auth, activityId)) {
+        return ctx.send([], 403, '无权访问此活动');
       }
       const res = await service.userinfo.getChooseCount(teacherId, activityId);
       ctx.send(res, 200, 'success');
@@ -96,8 +117,18 @@ class UserinfoController extends Controller {
     const { ctx, service } = this;
     try {
       const { activityId, studentId } = ctx.query;
-      if (!activityId || !studentId) {
+      if (
+        !activityId
+        || !ctx.isValidObjectId(activityId)
+        || !isValidIdentifier(studentId)
+      ) {
         return ctx.send([], 400, '缺少参数 activityId 或 studentId');
+      }
+      if (!isSelfOrAdmin(ctx.auth, 'student', studentId)) {
+        return ctx.send([], 403, '无权查看他人志愿');
+      }
+      if (!await hasActivityAccess(ctx.model, ctx.auth, activityId)) {
+        return ctx.send([], 403, '无权访问此活动');
       }
       const res = await service.userinfo.getChooseDetail(activityId, studentId);
       ctx.send(res, 200, 'success');
@@ -110,14 +141,14 @@ class UserinfoController extends Controller {
   async selfResetPassword() {
     const { ctx, service } = this;
     try {
-      const { username, oldPassword, newPassword } = ctx.request.body;
-      if (!username || !oldPassword || !newPassword) {
+      const { oldPassword, newPassword } = ctx.request.body;
+      const username = ctx.auth.username;
+      if (!oldPassword || !newPassword) {
         return ctx.send([], 400, '缺少必填参数');
       }
       ctx.validate({
-        username: { type: 'registerUsername', tips: '账号格式不正确' },
         newPassword: { type: 'registerUserPassword', tips: '密码需要6-20位的字母和数字' },
-      }, { username, newPassword });
+      }, { newPassword });
       const res = await service.userinfo.selfResetPassword(username, oldPassword, newPassword);
       ctx.send([], res.code, res.msg);
     } catch (err) {
@@ -147,7 +178,24 @@ class UserinfoController extends Controller {
     }
     try {
       const decoded = jwt.verify(refreshToken, ctx.app.config.jwt.refreshSecret);
-      if (decoded.type !== 'refresh') {
+      if (
+        decoded.type !== 'refresh'
+        || typeof decoded.uid !== 'string'
+        || decoded.uid.length < 1
+        || decoded.uid.length > 128
+        || !hasValidIdentity({ role: decoded.role, username: decoded.username })
+      ) {
+        return ctx.send([], 401, '无效的refresh token');
+      }
+      const currentUser = await ctx.model.Userinfo.findById(decoded.uid, {
+        role: 1,
+        username: 1,
+      });
+      if (
+        !currentUser
+        || currentUser.role !== decoded.role
+        || currentUser.username !== decoded.username
+      ) {
         return ctx.send([], 401, '无效的refresh token');
       }
       const accessToken = ctx.generateToken(decoded.uid, decoded.role, decoded.username);

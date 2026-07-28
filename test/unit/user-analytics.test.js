@@ -49,6 +49,7 @@ describe('user analytics telemetry', () => {
 
   it('classifies routes and clients without retaining raw URLs or user agents', () => {
     assert.equal(actionForRequest('POST', '/api/student/selectTeacher'), 'submit_preferences');
+    assert.equal(actionForRequest('POST', '/api/student/submitTeacherChoices'), 'submit_preferences');
     assert.equal(actionForRequest('GET', '/api/admin/getUserList'), 'view_users');
     assert.equal(actionForRequest('DELETE', '/api/admin/deleteUser'), 'manage_users');
     assert.equal(actionForRequest('GET', '/api/teacher/unknown'), 'read_data');

@@ -1,8 +1,18 @@
 'use strict';
 
 const Service = require('egg').Service;
+const crypto = require('node:crypto');
 const fsp = require('node:fs').promises;
 const path = require('node:path');
+const {
+  choiceFingerprint,
+  isDuplicateKeyError,
+  isSameChoiceSet,
+  isWithinWindow,
+} = require('../lib/selection-security');
+const { resolveExistingFileWithin } = require('../lib/safe-path');
+
+const SUBMISSION_LOCK_MS = 30 * 1000;
 
 class StdinfoService extends Service {
   async writeUserMsg(name, gender, studentId, grade, classNum, phone, gpa, direction, qq, wechat) {
@@ -36,32 +46,222 @@ class StdinfoService extends Service {
     return { code: 200, msg: '学生信息已更新', data: result };
   }
 
-  async selectTeacher(studentId, teacherId, order, isChose, activityId, subscribeTemplateId = '', subscribeStatus = '') {
-    const activity = await this.ctx.model.Activity.findById(activityId);
+  async submitTeacherChoices({ activityId, choices, studentId, subscribeStatus }) {
+    const { ctx } = this;
+    const activityKey = String(activityId);
+    const activity = await ctx.model.Activity.findById(activityId);
     if (!activity) {
       return { code: 404, msg: '活动不存在' };
     }
     const now = new Date();
     const startDate = new Date(activity.stdChooseStartDate);
     const endDate = new Date(activity.stdChooseEndDate);
-    if (now < startDate || now > endDate) {
+    if (!isWithinWindow(now, { start: startDate, end: endDate })) {
       return { code: 400, msg: '不在选老师时间内' };
     }
-    const existing = await this.ctx.model.Choose.findOne({ studentId, activityId, order });
-    if (existing) {
-      return { code: 409, msg: `第${order}志愿已提交，请勿重复选择` };
+
+    const [ student, studentMembership, teacherMemberships, teachers ] = await Promise.all([
+      ctx.model.Student.findOne({ studentId }),
+      ctx.model.UserInActivity.findOne({ activityId: activityKey, studentId }),
+      ctx.model.UserInActivity.find({
+        activityId: activityKey,
+        teacherId: { $in: choices.map(item => item.teacherId) },
+      }),
+      ctx.model.Teacher.find({ teacherId: { $in: choices.map(item => item.teacherId) } }),
+    ]);
+    if (!student || !studentMembership) {
+      return { code: 403, msg: '学生不属于此活动' };
     }
-    const choose = await this.ctx.model.Choose.create({
+    const teacherIds = new Set(teachers.map(item => item.teacherId));
+    const membershipByTeacher = new Map(
+      teacherMemberships.map(item => [ item.teacherId, item ])
+    );
+    if (choices.some(item => !teacherIds.has(item.teacherId) || !membershipByTeacher.has(item.teacherId))) {
+      return { code: 400, msg: '志愿中包含不属于此活动的导师' };
+    }
+
+    const finalCounts = await Promise.all(choices.map(item => (
+      ctx.model.Final.countDocuments({ activityId: activityKey, teacherId: item.teacherId })
+    )));
+    for (let index = 0; index < choices.length; index++) {
+      const quota = Number(membershipByTeacher.get(choices[index].teacherId).maxSelectNum);
+      if (!Number.isInteger(quota) || quota < 1) {
+        return { code: 409, msg: `导师 ${choices[index].teacherId} 名额尚未配置` };
+      }
+      if (finalCounts[index] >= quota) {
+        return { code: 409, msg: `导师 ${choices[index].teacherId} 名额已满` };
+      }
+    }
+
+    const fingerprint = choiceFingerprint(
       studentId,
-      teacherId,
-      order,
-      isChose,
-      activityId,
-      createTime: now,
-      subscribeTemplateId,
-      subscribeStatus,
+      activityKey,
+      choices
+    );
+    const ownerToken = crypto.randomUUID();
+    const lockUntil = new Date(now.getTime() + SUBMISSION_LOCK_MS);
+    let submission;
+    let existingSubmission;
+    try {
+      submission = await ctx.model.ChoiceSubmission.create({
+        activityId: activityKey,
+        choices,
+        fingerprint,
+        lockUntil,
+        ownerToken,
+        status: 'processing',
+        studentId,
+        subscribeStatus,
+        updatedAt: now,
+      });
+    } catch (error) {
+      if (!isDuplicateKeyError(error)) {
+        throw error;
+      }
+      existingSubmission = await ctx.model.ChoiceSubmission.findOne({
+        activityId: activityKey,
+        studentId,
+      });
+    }
+
+    if (!submission) {
+      if (!existingSubmission) {
+        return { code: 409, msg: '志愿正在提交，请稍后重试' };
+      }
+      if (existingSubmission.status === 'committed') {
+        if (existingSubmission.fingerprint !== fingerprint) {
+          return { code: 409, msg: '志愿已提交，不能重复修改' };
+        }
+        const existingChoices = await ctx.model.Choose.find({
+          activityId: activityKey,
+          studentId,
+        });
+        if (!isSameChoiceSet(existingChoices, choices)) {
+          return { code: 409, msg: '志愿记录需要管理员检查后重置' };
+        }
+        return { code: 200, msg: '志愿已提交', data: existingChoices };
+      }
+
+      const reclaimable = existingSubmission.status === 'failed'
+        || new Date(existingSubmission.lockUntil) <= now;
+      if (!reclaimable) {
+        return { code: 409, msg: '志愿正在提交，请稍后重试' };
+      }
+      const staleSubmissionId = existingSubmission.ownerToken;
+      submission = await ctx.model.ChoiceSubmission.findOneAndUpdate(
+        {
+          _id: existingSubmission._id,
+          status: existingSubmission.status,
+          lockUntil: existingSubmission.lockUntil,
+        },
+        {
+          $set: {
+            choices,
+            fingerprint,
+            lockUntil,
+            ownerToken,
+            status: 'processing',
+            subscribeStatus,
+            updatedAt: now,
+          },
+        },
+        { new: true }
+      );
+      if (!submission) {
+        return { code: 409, msg: '志愿正在提交，请稍后重试' };
+      }
+      if (staleSubmissionId) {
+        await ctx.model.Choose.deleteMany({
+          activityId: activityKey,
+          studentId,
+          submissionId: staleSubmissionId,
+        });
+      }
+    }
+
+    const existingChoices = await ctx.model.Choose.find({
+      activityId: activityKey,
+      studentId,
     });
-    return { code: 200, msg: '学生选老师选项已添加', data: choose };
+    if (existingChoices.length > 0) {
+      if (!isSameChoiceSet(existingChoices, choices)) {
+        await ctx.model.ChoiceSubmission.updateOne(
+          { _id: submission._id, ownerToken },
+          {
+            $set: {
+              lockUntil: now,
+              ownerToken,
+              status: 'failed',
+              updatedAt: now,
+            },
+          }
+        );
+        return { code: 409, msg: '检测到不完整或冲突的旧志愿，请联系管理员重置' };
+      }
+      await ctx.model.ChoiceSubmission.updateOne(
+        { _id: submission._id, ownerToken },
+        {
+          $set: {
+            lockUntil: now,
+            ownerToken: '',
+            status: 'committed',
+            updatedAt: now,
+          },
+        }
+      );
+      return { code: 200, msg: '志愿已提交', data: existingChoices };
+    }
+
+    const submissionId = ownerToken;
+    const documents = choices.map(item => ({
+      activityId: activityKey,
+      createTime: now,
+      isChose: false,
+      order: item.order,
+      studentId,
+      submissionId,
+      subscribeStatus,
+      subscribeTemplateId: ctx.app.config.wxMiniApp.subscribeTemplateId || '',
+      teacherId: item.teacherId,
+    }));
+    try {
+      const inserted = await ctx.model.Choose.insertMany(documents, { ordered: true });
+      const committed = await ctx.model.ChoiceSubmission.findOneAndUpdate(
+        { _id: submission._id, ownerToken, status: 'processing' },
+        {
+          $set: {
+            lockUntil: now,
+            ownerToken: '',
+            status: 'committed',
+            updatedAt: now,
+          },
+        },
+        { new: true }
+      );
+      if (!committed) {
+        throw new Error('choice submission lock ownership lost');
+      }
+      return { code: 201, msg: '志愿提交成功', data: inserted };
+    } catch (error) {
+      await ctx.model.Choose.deleteMany({
+        activityId: activityKey,
+        studentId,
+        submissionId,
+      });
+      await ctx.model.ChoiceSubmission.updateOne(
+        { _id: submission._id, ownerToken },
+        {
+          $set: {
+            lockUntil: now,
+            ownerToken,
+            status: 'failed',
+            updatedAt: now,
+          },
+        }
+      );
+      ctx.logger.error('submitTeacherChoices write failed:', error);
+      return { code: 500, msg: '志愿提交失败，未保存任何志愿' };
+    }
   }
 
   async saveOpenid(code, studentId) {
@@ -78,7 +278,7 @@ class StdinfoService extends Service {
       return { code: 200, msg: 'openid 保存成功' };
     } catch (error) {
       this.ctx.logger.error('[saveOpenid] 错误:', error);
-      return { code: 500, msg: error.message || '服务器错误' };
+      return { code: 502, msg: '微信身份校验失败，请稍后重试' };
     }
   }
 
@@ -150,8 +350,8 @@ class StdinfoService extends Service {
     if (existing) {
       if (existing.filePath && existing.filePath !== subPath) {
         try {
-          const oldFilePath = path.normalize(path.join(uploadDir, existing.filePath));
-          if (oldFilePath.startsWith(path.normalize(uploadDir))) {
+          const oldFilePath = await resolveExistingFileWithin(uploadDir, existing.filePath);
+          if (oldFilePath) {
             await fsp.unlink(oldFilePath).catch(() => {});
           }
         } catch (e) {
@@ -178,10 +378,8 @@ class StdinfoService extends Service {
     if (!resume.filePath) {
       return { code: 404, msg: '简历文件路径不存在' };
     }
-    const filePath = path.join(uploadDir, resume.filePath);
-    try {
-      await fsp.access(filePath);
-    } catch {
+    const filePath = await resolveExistingFileWithin(uploadDir, resume.filePath);
+    if (!filePath) {
       return { code: 404, msg: '简历文件不存在' };
     }
     const fileContent = await fsp.readFile(filePath);
