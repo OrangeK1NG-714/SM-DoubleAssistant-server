@@ -17,7 +17,12 @@ class WechatService extends Service {
     }
 
     const { appid, secret } = this.app.config.wxMiniApp;
-    const url = `https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${appid}&secret=${secret}`;
+    const query = new URLSearchParams({
+      appid,
+      grant_type: 'client_credential',
+      secret,
+    });
+    const url = `https://api.weixin.qq.com/cgi-bin/token?${query.toString()}`;
 
     const result = await this.ctx.curl(url, {
       method: 'GET',
@@ -32,17 +37,23 @@ class WechatService extends Service {
     }
 
     this.ctx.logger.error('[wechat] 获取 access_token 失败:', result.data);
-    throw new Error('获取微信 access_token 失败: ' + JSON.stringify(result.data));
+    throw new Error('获取微信 access_token 失败');
   }
 
   /**
      * 通过 code 换取用户 openid
      * @param {string} code - 前端 wx.login() 返回的 code
      * @return {Promise<string>} openid
-     */
+    */
   async getOpenid(code) {
     const { appid, secret } = this.app.config.wxMiniApp;
-    const url = `https://api.weixin.qq.com/sns/jscode2session?appid=${appid}&secret=${secret}&js_code=${code}&grant_type=authorization_code`;
+    const query = new URLSearchParams({
+      appid,
+      grant_type: 'authorization_code',
+      js_code: code,
+      secret,
+    });
+    const url = `https://api.weixin.qq.com/sns/jscode2session?${query.toString()}`;
 
     const result = await this.ctx.curl(url, {
       method: 'GET',
@@ -54,7 +65,7 @@ class WechatService extends Service {
     }
 
     this.ctx.logger.error('[wechat] jscode2session 失败:', result.data);
-    throw new Error('获取 openid 失败: ' + JSON.stringify(result.data));
+    throw new Error('获取 openid 失败');
   }
 
   /**
@@ -94,7 +105,7 @@ class WechatService extends Service {
 
     if (result.data && result.data.errcode !== 0) {
       this.ctx.logger.error('[wechat] 订阅消息发送失败:', result.data);
-      throw new Error('微信订阅消息发送失败: ' + JSON.stringify(result.data));
+      throw new Error('微信订阅消息发送失败');
     }
 
     return result.data;

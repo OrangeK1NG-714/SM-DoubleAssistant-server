@@ -1,6 +1,8 @@
 'use strict';
 
 const Controller = require('egg').Controller;
+const { hasActivityAccess, isSelfOrAdmin } = require('../lib/access-control');
+const { isValidIdentifier } = require('../lib/selection-security');
 
 class TeainfoController extends Controller {
   async getTeaDetail() {
@@ -15,66 +17,15 @@ class TeainfoController extends Controller {
   }
 
   async updateChoose() {
-    const { ctx, service } = this;
-    try {
-      if (ctx.auth.role !== 'teacher' && ctx.auth.role !== 'admin') {
-        return ctx.send([], 403, '仅导师或管理员可操作');
-      }
-      const { studentId, teacherId, activityId } = ctx.request.body;
-      if (!studentId || !teacherId || !activityId) {
-        return ctx.send([], 400, '缺少必填参数 studentId/teacherId/activityId');
-      }
-      if (ctx.auth.role === 'teacher' && ctx.auth.username !== teacherId) {
-        return ctx.send([], 403, '无权操作他人选择');
-      }
-      const res = await service.teainfo.updateChoose(studentId, teacherId, activityId);
-      ctx.send([], res.code, res.msg);
-    } catch (err) {
-      ctx.logger.error('updateChoose error:', err);
-      ctx.send([], 500, '服务器错误');
-    }
+    this.ctx.send([], 410, '单独修改志愿状态已停用');
   }
 
   async selectStudent() {
-    const { ctx, service } = this;
-    try {
-      if (ctx.auth.role !== 'teacher' && ctx.auth.role !== 'admin') {
-        return ctx.send([], 403, '仅导师或管理员可操作');
-      }
-      const { studentId, teacherId, activityId, data, order } = ctx.request.body;
-      if (!studentId || !teacherId || !activityId || !data || order === undefined || order === null) {
-        return ctx.send([], 400, '缺少必填参数');
-      }
-      if (ctx.auth.role === 'teacher' && ctx.auth.username !== teacherId) {
-        return ctx.send([], 403, '无权代替他人选择学生');
-      }
-      const res = await service.teainfo.selectStudent(studentId, teacherId, activityId, data, order);
-      ctx.send([], res.code, res.msg);
-    } catch (err) {
-      ctx.logger.error('selectStudent error:', err);
-      ctx.send([], 500, '服务器错误');
-    }
+    this.ctx.send([], 410, '旧录取接口已停用，请使用一致性录取接口');
   }
 
   async cancelSelect() {
-    const { ctx, service } = this;
-    try {
-      if (ctx.auth.role !== 'teacher' && ctx.auth.role !== 'admin') {
-        return ctx.send([], 403, '仅导师或管理员可操作');
-      }
-      const { studentId, teacherId, activityId } = ctx.request.query;
-      if (!studentId || !teacherId || !activityId) {
-        return ctx.send([], 400, '缺少必填参数 studentId/teacherId/activityId');
-      }
-      if (ctx.auth.role === 'teacher' && ctx.auth.username !== teacherId) {
-        return ctx.send([], 403, '无权操作他人选择');
-      }
-      const res = await service.teainfo.cancelSelect(studentId, teacherId, activityId);
-      ctx.send([], res.code, res.msg);
-    } catch (err) {
-      ctx.logger.error('cancelSelect error:', err);
-      ctx.send([], 500, '服务器错误');
-    }
+    this.ctx.send([], 410, '旧取消接口已停用，请使用一致性取消接口');
   }
 
   async selectStudentAndUpdate() {
@@ -83,14 +34,19 @@ class TeainfoController extends Controller {
       if (ctx.auth.role !== 'teacher' && ctx.auth.role !== 'admin') {
         return ctx.send([], 403, '仅导师或管理员可操作');
       }
-      const { studentId, teacherId, activityId, data, order } = ctx.request.body;
-      if (!studentId || !teacherId || !activityId || !data || order === undefined || order === null) {
+      const { studentId, teacherId, activityId } = ctx.request.body;
+      if (
+        !isValidIdentifier(studentId)
+        || !isValidIdentifier(teacherId)
+        || !activityId
+        || !ctx.isValidObjectId(activityId)
+      ) {
         return ctx.send([], 400, '缺少必填参数');
       }
       if (ctx.auth.role === 'teacher' && ctx.auth.username !== teacherId) {
         return ctx.send([], 403, '无权代替他人选择学生');
       }
-      const res = await service.teainfo.selectStudentAndUpdate(studentId, teacherId, activityId, data, order);
+      const res = await service.teainfo.selectStudentAndUpdate(studentId, teacherId, activityId);
       ctx.send(res.data || [], res.code, res.msg);
     } catch (err) {
       ctx.logger.error('selectStudentAndUpdate error:', err);
@@ -105,7 +61,12 @@ class TeainfoController extends Controller {
         return ctx.send([], 403, '仅导师或管理员可操作');
       }
       const { studentId, teacherId, activityId } = ctx.request.body;
-      if (!studentId || !teacherId || !activityId) {
+      if (
+        !isValidIdentifier(studentId)
+        || !isValidIdentifier(teacherId)
+        || !activityId
+        || !ctx.isValidObjectId(activityId)
+      ) {
         return ctx.send([], 400, '缺少必填参数 studentId/teacherId/activityId');
       }
       if (ctx.auth.role === 'teacher' && ctx.auth.username !== teacherId) {
@@ -123,6 +84,20 @@ class TeainfoController extends Controller {
     const { ctx, service } = this;
     try {
       const { teacherId, activityId, studentId } = ctx.request.query;
+      if (
+        !isValidIdentifier(teacherId)
+        || !activityId
+        || !ctx.isValidObjectId(activityId)
+        || (studentId && !isValidIdentifier(studentId))
+      ) {
+        return ctx.send([], 400, '缺少参数 teacherId 或 activityId');
+      }
+      if (!isSelfOrAdmin(ctx.auth, 'teacher', teacherId)) {
+        return ctx.send([], 403, '无权查看其他导师的录取数据');
+      }
+      if (!await hasActivityAccess(ctx.model, ctx.auth, activityId)) {
+        return ctx.send([], 403, '无权访问此活动');
+      }
       const res = await service.teainfo.getSelectList(teacherId, activityId, studentId);
       ctx.send(res, 200, 'success');
     } catch (err) {
@@ -135,8 +110,14 @@ class TeainfoController extends Controller {
     const { ctx, service } = this;
     try {
       const { teacherId, activityId } = ctx.request.query;
-      if (!teacherId || !activityId) {
+      if (!isValidIdentifier(teacherId) || !activityId || !ctx.isValidObjectId(activityId)) {
         return ctx.send([], 400, '缺少参数 teacherId 或 activityId');
+      }
+      if (!isSelfOrAdmin(ctx.auth, 'teacher', teacherId)) {
+        return ctx.send([], 403, '无权查看其他导师的志愿数据');
+      }
+      if (!await hasActivityAccess(ctx.model, ctx.auth, activityId)) {
+        return ctx.send([], 403, '无权访问此活动');
       }
       const res = await service.teainfo.getChooseStudents(teacherId, activityId);
       ctx.send(res, 200, 'success');
@@ -150,11 +131,14 @@ class TeainfoController extends Controller {
     const { ctx, service } = this;
     try {
       const { teacherId, activityId } = ctx.request.query;
-      if (!teacherId || !activityId) {
+      if (!isValidIdentifier(teacherId) || !activityId || !ctx.isValidObjectId(activityId)) {
         return ctx.send([], 400, '缺少参数 teacherId 或 activityId');
       }
-      if (!ctx.isValidObjectId(activityId)) {
-        return ctx.send([], 400, '无效的 activityId');
+      if (!isSelfOrAdmin(ctx.auth, 'teacher', teacherId)) {
+        return ctx.send([], 403, '无权查看其他导师的志愿数据');
+      }
+      if (!await hasActivityAccess(ctx.model, ctx.auth, activityId)) {
+        return ctx.send([], 403, '无权访问此活动');
       }
       const res = await service.teainfo.getChoosePageData(teacherId, activityId);
       ctx.send(res, 200, 'success');
@@ -168,8 +152,11 @@ class TeainfoController extends Controller {
     const { ctx, service } = this;
     try {
       const { teacherId, activityId } = ctx.request.query;
-      if (!teacherId || !activityId) {
+      if (!isValidIdentifier(teacherId) || !activityId || !ctx.isValidObjectId(activityId)) {
         return ctx.send([], 400, '缺少参数 teacherId 或 activityId');
+      }
+      if (!isSelfOrAdmin(ctx.auth, 'teacher', teacherId)) {
+        return ctx.send([], 403, '无权查询其他导师的活动身份');
       }
       const res = await service.teainfo.isInActivity(teacherId, activityId);
       if (res) {

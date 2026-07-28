@@ -19,6 +19,7 @@ const EXACT_ACTIONS = new Map([
   [ 'POST /api/user/writeMsg', 'update_profile' ],
   [ 'PUT /api/user/updateMsg', 'update_profile' ],
   [ 'POST /api/student/selectTeacher', 'submit_preferences' ],
+  [ 'POST /api/student/submitTeacherChoices', 'submit_preferences' ],
   [ 'POST /api/teacher/selectStudent', 'confirm_student' ],
   [ 'POST /api/teacher/selectStudentAndUpdate', 'confirm_student' ],
   [ 'DELETE /api/teacher/cancelSelect', 'confirm_student' ],

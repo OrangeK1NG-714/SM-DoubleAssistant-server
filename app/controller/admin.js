@@ -4,6 +4,8 @@ const Controller = require('egg').Controller;
 const fs = require('node:fs');
 const fsp = fs.promises;
 const path = require('node:path');
+const { hasActivityAccess, isAdmin, isSelfOrAdmin } = require('../lib/access-control');
+const { isValidIdentifier } = require('../lib/selection-security');
 
 class AdminController extends Controller {
   async getUserList() {
@@ -53,6 +55,9 @@ class AdminController extends Controller {
       const { id } = ctx.request.query;
       if (!id || !ctx.isValidObjectId(id)) {
         return ctx.send([], 400, '缺少参数或ID格式不正确');
+      }
+      if (!await hasActivityAccess(ctx.model, ctx.auth, id)) {
+        return ctx.send([], 403, '无权访问此活动');
       }
       const res = await service.admin.getActivityDetail(id);
       ctx.send(res, 200, 'success');
@@ -286,7 +291,12 @@ class AdminController extends Controller {
     const { ctx, service } = this;
     try {
       const { activityId, studentId, teacherId } = ctx.request.body;
-      if (!activityId || !studentId || !teacherId) {
+      if (
+        !activityId
+        || !ctx.isValidObjectId(activityId)
+        || !isValidIdentifier(studentId)
+        || !isValidIdentifier(teacherId)
+      ) {
         return ctx.send([], 400, '缺少必填参数 activityId/studentId/teacherId');
       }
       const res = await service.admin.addFinal(activityId, studentId, teacherId);
@@ -346,7 +356,11 @@ class AdminController extends Controller {
     const { ctx, service } = this;
     try {
       const { activityId, teacherId, maxSelectNum } = ctx.request.body;
-      if (!activityId || !teacherId) {
+      if (
+        !activityId
+        || !ctx.isValidObjectId(activityId)
+        || !isValidIdentifier(teacherId)
+      ) {
         return ctx.send([], 400, '缺少必填参数 activityId 或 teacherId');
       }
       const num = Number(maxSelectNum);
@@ -384,8 +398,15 @@ class AdminController extends Controller {
     const { ctx, service } = this;
     try {
       const { activityId, teacherId } = ctx.request.query;
-      if (!activityId || !teacherId) {
+      if (
+        !activityId
+        || !ctx.isValidObjectId(activityId)
+        || !isValidIdentifier(teacherId)
+      ) {
         return ctx.send([], 400, '缺少参数 activityId 或 teacherId');
+      }
+      if (!await hasActivityAccess(ctx.model, ctx.auth, activityId)) {
+        return ctx.send([], 403, '无权访问此活动');
       }
       const res = await service.admin.getMaxSelectNum(activityId, teacherId);
       ctx.send(res, 200, 'success');
@@ -399,8 +420,18 @@ class AdminController extends Controller {
     const { ctx, service } = this;
     try {
       const { studentId, activityId } = ctx.request.query;
-      if (!studentId || !activityId) {
+      if (
+        !isValidIdentifier(studentId)
+        || !activityId
+        || !ctx.isValidObjectId(activityId)
+      ) {
         return ctx.send([], 400, '缺少参数 studentId 或 activityId');
+      }
+      if (!isSelfOrAdmin(ctx.auth, 'student', studentId)) {
+        return ctx.send([], 403, '无权查看他人录取结果');
+      }
+      if (!await hasActivityAccess(ctx.model, ctx.auth, activityId)) {
+        return ctx.send([], 403, '无权访问此活动');
       }
       const res = await service.admin.getFinalChoose(studentId, activityId);
       ctx.send(res, 200, 'success');
@@ -415,7 +446,7 @@ class AdminController extends Controller {
     try {
       const teacherId = ctx.request.body.teacherId;
       const resumeName = ctx.request.body.resumeName;
-      if (!teacherId) {
+      if (!isValidIdentifier(teacherId)) {
         return ctx.send([], 400, '教师ID不能为空');
       }
       const file = ctx.request.files?.[0];
@@ -446,9 +477,27 @@ class AdminController extends Controller {
   async getTeacherResume() {
     const { ctx, service } = this;
     try {
-      const { teacherId } = ctx.request.query;
-      if (!teacherId) {
+      const { teacherId, activityId } = ctx.request.query;
+      if (!isValidIdentifier(teacherId)) {
         return ctx.send([], 400, '教师ID不能为空');
+      }
+      if (activityId && !ctx.isValidObjectId(activityId)) {
+        return ctx.send([], 400, 'activityId 格式不正确');
+      }
+      let allowed = isAdmin(ctx.auth) || isSelfOrAdmin(ctx.auth, 'teacher', teacherId);
+      if (!allowed && ctx.auth.role === 'student' && activityId) {
+        const activityKey = String(activityId);
+        const [ studentMember, teacherMember ] = await Promise.all([
+          ctx.model.UserInActivity.exists({
+            activityId: activityKey,
+            studentId: ctx.auth.username,
+          }),
+          ctx.model.UserInActivity.exists({ activityId: activityKey, teacherId }),
+        ]);
+        allowed = Boolean(studentMember && teacherMember);
+      }
+      if (!allowed) {
+        return ctx.send([], 403, '无权查看该导师简历');
       }
       const result = await service.admin.getTeacherResume(teacherId);
       if (result.code !== 200) {

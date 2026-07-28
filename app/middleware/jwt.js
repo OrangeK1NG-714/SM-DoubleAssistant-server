@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { hasValidIdentity } = require('../lib/access-control');
 const { actionForRequest, recordUserActivity } = require('../lib/user-analytics');
 
 module.exports = (options = { requiredRole: null }) => {
@@ -23,15 +24,26 @@ module.exports = (options = { requiredRole: null }) => {
       return ctx.send([], 401, '无效 Token');
     }
 
-    if (options.requiredRole && decoded.role !== options.requiredRole) {
-      return ctx.send([], 403, '无权访问此资源');
-    }
-
-    ctx.auth = {
+    const auth = {
       uid: decoded.uid,
       role: decoded.role,
       username: decoded.username,
     };
+    if (
+      decoded.type !== 'access'
+      || typeof decoded.uid !== 'string'
+      || decoded.uid.length < 1
+      || decoded.uid.length > 128
+      || !hasValidIdentity(auth)
+    ) {
+      return ctx.send([], 401, '无效 Token');
+    }
+
+    if (options.requiredRole && auth.role !== options.requiredRole) {
+      return ctx.send([], 403, '无权访问此资源');
+    }
+
+    ctx.auth = auth;
 
     try {
       await next();

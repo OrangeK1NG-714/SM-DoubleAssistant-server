@@ -20,4 +20,23 @@ describe('test/app/controller/home.test.js', () => {
       .get('/')
       .expect(404);
   });
+
+  it('declares unique standalone-safe coordination indexes', () => {
+    const hasUniqueIndex = (model, expectedKeys) => model.schema.indexes().some(
+      ([ keys, options ]) => options.unique === true
+        && JSON.stringify(keys) === JSON.stringify(expectedKeys)
+    );
+    assert.equal(
+      hasUniqueIndex(app.model.ChoiceSubmission, { studentId: 1, activityId: 1 }),
+      true
+    );
+    assert.equal(
+      hasUniqueIndex(app.model.FinalReservation, { studentId: 1, activityId: 1 }),
+      true
+    );
+    assert.equal(
+      hasUniqueIndex(app.model.TeacherOperationLock, { teacherId: 1, activityId: 1 }),
+      true
+    );
+  });
 });

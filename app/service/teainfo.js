@@ -1,10 +1,24 @@
 'use strict';
 
 const Service = require('egg').Service;
+const {
+  isDuplicateKeyError,
+  isWithinWindow,
+  teacherWindow,
+} = require('../lib/selection-security');
+const {
+  acquireTeacherLock,
+  releaseTeacherLock,
+} = require('../lib/selection-lock');
+
+const FINAL_RESERVATION_MS = 30 * 1000;
 
 class TeainfoService extends Service {
   async getTeaDetail() {
-    const data = await this.ctx.model.Teacher.find();
+    const data = await this.ctx.model.Teacher.find({}, {
+      resumeName: 0,
+      resumePath: 0,
+    });
     return { code: 200, data };
   }
 
@@ -35,34 +49,258 @@ class TeainfoService extends Service {
     return { code: 200, msg: '老师取消选择学生', data: res };
   }
 
-  async selectStudentAndUpdate(studentId, teacherId, activityId, data, order) {
-    const existing = await this.ctx.model.Final.findOne({ studentId, teacherId, activityId });
-    if (existing) {
-      return { code: 409, msg: '该学生已被选择，请勿重复操作' };
+  async _getSelectionContext(studentId, teacherId, activityId) {
+    const { ctx } = this;
+    const activityKey = String(activityId);
+    const [ activity, teacherMembership, studentMembership, choose, student ] = await Promise.all([
+      ctx.model.Activity.findById(activityId),
+      ctx.model.UserInActivity.findOne({ activityId: activityKey, teacherId }),
+      ctx.model.UserInActivity.findOne({ activityId: activityKey, studentId }),
+      ctx.model.Choose.findOne({ activityId: activityKey, studentId, teacherId }),
+      ctx.model.Student.findOne({ studentId }),
+    ]);
+    if (!activity) {
+      return { error: { code: 404, msg: '活动不存在' } };
     }
-    const choose = await this.ctx.model.Choose.findOne({ studentId, teacherId, activityId });
-    if (!choose) {
-      return { code: 404, msg: '选择记录不存在' };
+    if (!teacherMembership || !studentMembership) {
+      return { error: { code: 403, msg: '导师或学生不属于此活动' } };
     }
-    const final = await this.ctx.model.Final.create({ studentId, teacherId, activityId, data, order });
-    await this.ctx.model.Choose.findOneAndUpdate(
-      { studentId, teacherId, activityId },
-      { isChose: true }
-    );
-    return { code: 200, msg: '老师已选学生', data: final };
+    if (!choose || !student) {
+      return { error: { code: 404, msg: '学生未向该导师提交志愿' } };
+    }
+    const window = teacherWindow(activity, Number(choose.order));
+    if (!isWithinWindow(new Date(), window)) {
+      return { error: { code: 400, msg: `当前不在第${choose.order}志愿选择时间内` } };
+    }
+    return {
+      activityKey,
+      choose,
+      student,
+      teacherMembership,
+    };
+  }
+
+  async _acquireTeacherLock(activityId, teacherId) {
+    return acquireTeacherLock(this.ctx.model, activityId, teacherId);
+  }
+
+  async _releaseTeacherLock(activityId, teacherId, ownerToken) {
+    await releaseTeacherLock(this.ctx.model, activityId, teacherId, ownerToken);
+  }
+
+  async selectStudentAndUpdate(studentId, teacherId, activityId) {
+    const { ctx } = this;
+    const selection = await this._getSelectionContext(studentId, teacherId, activityId);
+    if (selection.error) {
+      return selection.error;
+    }
+    const { activityKey, choose, student, teacherMembership } = selection;
+    const ownerToken = await this._acquireTeacherLock(activityKey, teacherId);
+    if (!ownerToken) {
+      return { code: 409, msg: '导师选择正在处理中，请稍后重试' };
+    }
+
+    let createdFinal = false;
+    let ownsReservation = false;
+    try {
+      let existingFinal = await ctx.model.Final.findOne({
+        activityId: activityKey,
+        studentId,
+      });
+      if (existingFinal && existingFinal.teacherId !== teacherId) {
+        return { code: 409, msg: '该学生已被其他导师录取' };
+      }
+
+      if (!existingFinal) {
+        const quota = Number(teacherMembership.maxSelectNum);
+        if (!Number.isInteger(quota) || quota < 1) {
+          return { code: 409, msg: '导师名额尚未配置' };
+        }
+        const selectedCount = await ctx.model.Final.countDocuments({
+          activityId: activityKey,
+          teacherId,
+        });
+        if (selectedCount >= quota) {
+          return { code: 409, msg: '已达到最大选择人数限制' };
+        }
+      }
+
+      let reservation;
+      const reservationNow = new Date();
+      const reservationLockUntil = new Date(
+        reservationNow.getTime() + FINAL_RESERVATION_MS
+      );
+      try {
+        reservation = await ctx.model.FinalReservation.create({
+          activityId: activityKey,
+          lockUntil: reservationLockUntil,
+          ownerToken,
+          status: 'processing',
+          studentId,
+          teacherId,
+          updatedAt: reservationNow,
+        });
+        ownsReservation = true;
+      } catch (error) {
+        if (!isDuplicateKeyError(error)) {
+          throw error;
+        }
+        reservation = await ctx.model.FinalReservation.findOne({
+          activityId: activityKey,
+          studentId,
+        });
+      }
+      if (
+        reservation
+        && reservation.status === 'processing'
+        && (
+          !reservation.lockUntil
+          || new Date(reservation.lockUntil) <= reservationNow
+        )
+      ) {
+        reservation = await ctx.model.FinalReservation.findOneAndUpdate(
+          {
+            _id: reservation._id,
+            lockUntil: reservation.lockUntil,
+            status: 'processing',
+          },
+          {
+            $set: {
+              lockUntil: reservationLockUntil,
+              ownerToken,
+              teacherId,
+              updatedAt: reservationNow,
+            },
+          },
+          { new: true }
+        );
+        ownsReservation = Boolean(reservation);
+      }
+      if (!reservation || reservation.teacherId !== teacherId) {
+        return { code: 409, msg: '该学生已被其他导师录取' };
+      }
+      if (reservation.status === 'processing' && !ownsReservation) {
+        return { code: 409, msg: '该学生录取正在处理中，请稍后重试' };
+      }
+
+      if (!existingFinal) {
+        existingFinal = await ctx.model.Final.create({
+          activityId: activityKey,
+          data: student.data || {},
+          order: choose.order,
+          studentId,
+          teacherId,
+        });
+        createdFinal = true;
+      }
+      const updatedChoose = await ctx.model.Choose.findOneAndUpdate(
+        { activityId: activityKey, studentId, teacherId },
+        { $set: { isChose: true } },
+        { new: true }
+      );
+      if (!updatedChoose) {
+        throw new Error('choice disappeared during final selection');
+      }
+      await ctx.model.FinalReservation.updateOne(
+        ownsReservation
+          ? { activityId: activityKey, ownerToken, studentId, teacherId }
+          : { activityId: activityKey, studentId, teacherId },
+        {
+          $set: {
+            lockUntil: new Date(),
+            ownerToken: '',
+            status: 'committed',
+            updatedAt: new Date(),
+          },
+        }
+      );
+      return {
+        code: createdFinal ? 201 : 200,
+        msg: createdFinal ? '老师已选学生' : '该学生已录取',
+        data: existingFinal,
+      };
+    } catch (error) {
+      if (createdFinal) {
+        await ctx.model.Final.deleteOne({ activityId: activityKey, studentId, teacherId });
+      }
+      if (ownsReservation) {
+        await ctx.model.FinalReservation.deleteOne({
+          activityId: activityKey,
+          ownerToken,
+          studentId,
+          teacherId,
+        });
+      }
+      ctx.logger.error('selectStudentAndUpdate failed:', error);
+      return { code: 500, msg: '录取失败，操作已回滚' };
+    } finally {
+      await this._releaseTeacherLock(activityKey, teacherId, ownerToken).catch(error => {
+        ctx.logger.error('release teacher selection lock failed:', error);
+      });
+    }
   }
 
   async cancelSelectAndUpdate(studentId, teacherId, activityId) {
-    const choose = await this.ctx.model.Choose.findOne({ studentId, teacherId, activityId });
-    if (!choose) {
-      return { code: 404, msg: '选择记录不存在' };
+    const { ctx } = this;
+    const selection = await this._getSelectionContext(studentId, teacherId, activityId);
+    if (selection.error) {
+      return selection.error;
     }
-    await this.ctx.model.Final.deleteOne({ studentId, teacherId, activityId });
-    await this.ctx.model.Choose.findOneAndUpdate(
-      { studentId, teacherId, activityId },
-      { isChose: false }
-    );
-    return { code: 200, msg: '老师取消选择学生' };
+    const { activityKey } = selection;
+    const ownerToken = await this._acquireTeacherLock(activityKey, teacherId);
+    if (!ownerToken) {
+      return { code: 409, msg: '导师选择正在处理中，请稍后重试' };
+    }
+
+    let deletedFinal = null;
+    try {
+      const final = await ctx.model.Final.findOne({ activityId: activityKey, studentId });
+      if (final && final.teacherId !== teacherId) {
+        return { code: 409, msg: '该学生由其他导师录取，无权取消' };
+      }
+      if (final) {
+        deletedFinal = {
+          activityId: activityKey,
+          data: final.data || {},
+          order: final.order,
+          studentId,
+          teacherId,
+        };
+        await ctx.model.Final.deleteOne({ activityId: activityKey, studentId, teacherId });
+      }
+      const updatedChoose = await ctx.model.Choose.findOneAndUpdate(
+        { activityId: activityKey, studentId, teacherId },
+        { $set: { isChose: false } },
+        { new: true }
+      );
+      if (!updatedChoose) {
+        throw new Error('choice disappeared during final cancellation');
+      }
+      await ctx.model.FinalReservation.deleteOne({
+        activityId: activityKey,
+        studentId,
+        teacherId,
+      });
+      return { code: 200, msg: final ? '老师取消选择学生' : '该学生未被录取' };
+    } catch (error) {
+      if (deletedFinal) {
+        await ctx.model.Final.create(deletedFinal).catch(rollbackError => {
+          ctx.logger.error('cancelSelectAndUpdate rollback failed:', rollbackError);
+        });
+        await ctx.model.Choose.findOneAndUpdate(
+          { activityId: activityKey, studentId, teacherId },
+          { $set: { isChose: true } }
+        ).catch(rollbackError => {
+          ctx.logger.error('cancelSelectAndUpdate choice rollback failed:', rollbackError);
+        });
+      }
+      ctx.logger.error('cancelSelectAndUpdate failed:', error);
+      return { code: 500, msg: '取消失败，原录取状态已保留' };
+    } finally {
+      await this._releaseTeacherLock(activityKey, teacherId, ownerToken).catch(error => {
+        ctx.logger.error('release teacher selection lock failed:', error);
+      });
+    }
   }
 
   async getSelectList(teacherId, activityId, studentId) {
@@ -90,7 +328,7 @@ class TeainfoService extends Service {
 
     const studentMap = new Map(students.map(s => [ s.studentId, s.data || {} ]));
     const finalMap = new Map(finals.map(f => [ f.studentId, f.teacherId ]));
-    const resumeMap = new Map(resumes.map(r => [ r.studentId, { resumeName: r.fileName, resumePath: r.filePath }]));
+    const resumeMap = new Map(resumes.map(r => [ r.studentId, { resumeName: r.fileName }]));
 
     return chooseList.map(c => ({
       ...c.toObject(),

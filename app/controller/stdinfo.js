@@ -4,6 +4,17 @@ const Controller = require('egg').Controller;
 const fs = require('node:fs');
 const fsp = fs.promises;
 const path = require('node:path');
+const {
+  canTeacherAccessStudent,
+  hasActivityAccess,
+  isRole,
+  isSelfOrAdmin,
+} = require('../lib/access-control');
+const {
+  isValidIdentifier,
+  normalizeChoices,
+  normalizeSubscribeStatus,
+} = require('../lib/selection-security');
 
 class StdinfoController extends Controller {
   async writeUserMsg() {
@@ -13,7 +24,7 @@ class StdinfoController extends Controller {
         return ctx.send([], 403, '仅学生或管理员可操作');
       }
       const { name, gender, studentId, grade, classNum, phone, gpa, direction, qq, wechat } = ctx.request.body;
-      if (!studentId) {
+      if (!isValidIdentifier(studentId)) {
         return ctx.send([], 400, '缺少必填参数 studentId');
       }
       if (ctx.auth.role === 'student' && ctx.auth.username !== studentId) {
@@ -34,7 +45,7 @@ class StdinfoController extends Controller {
         return ctx.send([], 403, '仅学生或管理员可操作');
       }
       const { name, gender, studentId } = ctx.request.body;
-      if (!studentId) {
+      if (!isValidIdentifier(studentId)) {
         return ctx.send([], 400, '缺少必填参数 studentId');
       }
       if (ctx.auth.role === 'student' && ctx.auth.username !== studentId) {
@@ -49,26 +60,42 @@ class StdinfoController extends Controller {
   }
 
   async selectTeacher() {
+    this.ctx.send([], 410, '单条志愿提交已停用，请使用批量提交接口');
+  }
+
+  async submitTeacherChoices() {
     const { ctx, service } = this;
     try {
-      if (ctx.auth.role !== 'student' && ctx.auth.role !== 'admin') {
+      if (!isRole(ctx.auth, 'student', 'admin')) {
         return ctx.send([], 403, '仅学生或管理员可操作');
       }
-      const { studentId, teacherId, order, isChose, activityId, subscribeTemplateId, subscribeStatus } = ctx.request.body;
-      if (!studentId || !teacherId || !activityId || order === undefined || order === null) {
-        return ctx.send([], 400, '缺少必填参数');
+      const { studentId, activityId, choices } = ctx.request.body;
+      const subscribeStatus = normalizeSubscribeStatus(ctx.request.body.subscribeStatus);
+      const normalizedChoices = normalizeChoices(choices);
+      if (
+        !isValidIdentifier(studentId)
+        || !activityId
+        || !normalizedChoices
+        || subscribeStatus === null
+      ) {
+        return ctx.send([], 400, '志愿参数不正确');
       }
-      if (ctx.auth.role === 'student' && ctx.auth.username !== studentId) {
-        return ctx.send([], 403, '无权代替他人选课');
+      if (!isSelfOrAdmin(ctx.auth, 'student', studentId)) {
+        return ctx.send([], 403, '无权代替他人提交志愿');
       }
       if (!ctx.isValidObjectId(activityId)) {
         return ctx.send([], 400, 'activityId 格式不正确');
       }
-      const res = await service.stdinfo.selectTeacher(studentId, teacherId, order, isChose, activityId, subscribeTemplateId, subscribeStatus);
-      ctx.send([], res.code, res.msg);
+      const res = await service.stdinfo.submitTeacherChoices({
+        activityId,
+        choices: normalizedChoices,
+        studentId,
+        subscribeStatus,
+      });
+      ctx.send(res.data || [], res.code, res.msg);
     } catch (err) {
-      ctx.logger.error('selectTeacher error:', err);
-      ctx.send([], 500, '服务器错误');
+      ctx.logger.error('submitTeacherChoices error:', err);
+      ctx.send([], 500, '志愿提交失败，请稍后重试');
     }
   }
 
@@ -76,8 +103,11 @@ class StdinfoController extends Controller {
     const { ctx, service } = this;
     try {
       const { activityId } = ctx.request.query;
-      if (!activityId) {
+      if (!activityId || !ctx.isValidObjectId(activityId)) {
         return ctx.send([], 400, '缺少参数 activityId');
+      }
+      if (!await hasActivityAccess(ctx.model, ctx.auth, activityId)) {
+        return ctx.send([], 403, '无权访问此活动');
       }
       const res = await service.stdinfo.getTeachersForActivity(activityId);
       ctx.send(res, 200, 'success');
@@ -91,8 +121,11 @@ class StdinfoController extends Controller {
     const { ctx, service } = this;
     try {
       const { activityId } = ctx.request.query;
-      if (!activityId) {
+      if (!activityId || !ctx.isValidObjectId(activityId)) {
         return ctx.send([], 400, '缺少参数 activityId');
+      }
+      if (!await hasActivityAccess(ctx.model, ctx.auth, activityId)) {
+        return ctx.send([], 403, '无权访问此活动');
       }
       const res = await service.stdinfo.getTeacherListInActivity(activityId);
       ctx.send(res, 200, 'success');
@@ -106,8 +139,15 @@ class StdinfoController extends Controller {
     const { ctx, service } = this;
     try {
       const { studentId, activityId } = ctx.request.query;
-      if (!studentId || !activityId) {
+      if (
+        !isValidIdentifier(studentId)
+        || !activityId
+        || !ctx.isValidObjectId(activityId)
+      ) {
         return ctx.send([], 400, '缺少参数 studentId 或 activityId');
+      }
+      if (!isSelfOrAdmin(ctx.auth, 'student', studentId)) {
+        return ctx.send([], 403, '无权查询他人活动身份');
       }
       const res = await service.stdinfo.isInActivity(studentId, activityId);
       if (res) {
@@ -125,8 +165,11 @@ class StdinfoController extends Controller {
     const { ctx, service } = this;
     try {
       const { studentId } = ctx.request.query;
-      if (!studentId) {
+      if (!isValidIdentifier(studentId)) {
         return ctx.send([], 400, '缺少参数 studentId');
+      }
+      if (!isSelfOrAdmin(ctx.auth, 'student', studentId)) {
+        return ctx.send([], 403, '无权查看他人信息');
       }
       const res = await service.stdinfo.getStudentMsg(studentId);
       if (!res) {
@@ -146,7 +189,13 @@ class StdinfoController extends Controller {
         return ctx.send([], 403, '仅学生或管理员可操作');
       }
       const { code, studentId } = ctx.request.body;
-      if (!code || !studentId) {
+      if (
+        typeof code !== 'string'
+        || code.length < 1
+        || code.length > 256
+        || !/^[A-Za-z0-9_-]+$/.test(code)
+        || !isValidIdentifier(studentId)
+      ) {
         return ctx.send([], 400, '缺少参数 code 或 studentId');
       }
       if (ctx.auth.role === 'student' && ctx.auth.username !== studentId) {
@@ -167,7 +216,7 @@ class StdinfoController extends Controller {
         return ctx.send([], 403, '仅学生或管理员可操作');
       }
       const studentId = ctx.request.body.studentId;
-      if (!studentId) {
+      if (!isValidIdentifier(studentId)) {
         return ctx.send([], 400, '学生ID不能为空');
       }
       if (ctx.auth.role === 'student' && ctx.auth.username !== studentId) {
@@ -201,8 +250,12 @@ class StdinfoController extends Controller {
     const { ctx, service } = this;
     try {
       const { studentId } = ctx.request.query;
-      if (!studentId) {
+      const { activityId } = ctx.request.query;
+      if (!isValidIdentifier(studentId)) {
         return ctx.send([], 400, '学生ID不能为空');
+      }
+      if (!await canTeacherAccessStudent(ctx.model, ctx.auth, studentId, activityId)) {
+        return ctx.send([], 403, '无权查看该学生简历');
       }
       const result = await service.stdinfo.getStudentResume(studentId);
       if (result.code !== 200) {

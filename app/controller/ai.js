@@ -1,14 +1,26 @@
 'use strict';
 
 const Controller = require('egg').Controller;
+const { hasActivityAccess, isSelfOrAdmin } = require('../lib/access-control');
+const { isValidIdentifier } = require('../lib/selection-security');
 
 class AiController extends Controller {
   async recommendTeachers() {
     const { ctx, service } = this;
     const { studentId, activityId } = ctx.request.query;
 
-    if (!studentId || !activityId) {
+    if (
+      !isValidIdentifier(studentId)
+      || !activityId
+      || !ctx.isValidObjectId(activityId)
+    ) {
       return ctx.send([], 400, '缺少 studentId 或 activityId');
+    }
+    if (!isSelfOrAdmin(ctx.auth, 'student', studentId)) {
+      return ctx.send([], 403, '无权为他人生成推荐');
+    }
+    if (!await hasActivityAccess(ctx.model, ctx.auth, activityId)) {
+      return ctx.send([], 403, '无权访问此活动');
     }
 
     try {

@@ -112,6 +112,9 @@ SM-DoubleAssistant-server/
 │   │   ├── activity.js             # 双选活动（含多轮次时间配置）
 │   │   ├── choose.js               # 志愿记录（学生→教师，1/2/3 志愿）
 │   │   ├── final.js                # 最终确认记录（教师选定学生）
+│   │   ├── choiceSubmission.js     # 志愿批次幂等锁（学生+活动唯一）
+│   │   ├── finalReservation.js     # 最终录取占位（学生+活动唯一）
+│   │   ├── teacherOperationLock.js # 导师配额串行锁（导师+活动唯一）
 │   │   ├── userInActivity.js       # 活动参与关系（含教师配额）
 │   │   └── resume.js               # 学生简历元数据
 │   ├── middleware/
@@ -192,6 +195,9 @@ SM-DoubleAssistant-server/
 - **UserInActivity**：用户与活动的多对多关系，记录教师的学生配额 (`maxSelectNum`)
 - **Choose**：学生提交的志愿记录，每个学生每个活动最多填报 3 个志愿（`order`: 1/2/3）
 - **Final**：教师确认选定的学生，代表最终的双选结果
+- **ChoiceSubmission / FinalReservation**：在独立的新集合中提供安全的唯一约束，
+  防止同一学生重复提交或被多个导师并发录取
+- **TeacherOperationLock**：串行化同一导师的录取操作，避免并发突破配额
 - **Student / Teacher**：用户的详细档案信息
 - **Resume**：学生上传的简历文件元数据
 
@@ -202,6 +208,14 @@ SM-DoubleAssistant-server/
 | Choose | `(studentId, activityId)`, `(teacherId, activityId)` |
 | Final | `(studentId, activityId)`, `(teacherId, activityId)` |
 | UserInActivity | `(activityId, teacherId)`, `(activityId, studentId)` |
+| ChoiceSubmission | 唯一 `(studentId, activityId)` |
+| FinalReservation | 唯一 `(studentId, activityId)` |
+| TeacherOperationLock | 唯一 `(teacherId, activityId)` |
+
+志愿一次提交 3 条记录。服务端先校验本人身份、活动成员关系、时间窗、导师归属、
+名额、顺序和重复项，再以唯一批次锁执行有补偿的有序写入。该方案不要求 MongoDB
+副本集：在 standalone 部署中若中途失败，会按本次 `submissionId` 清理部分写入，
+相同请求可安全重试；冲突或残缺的历史数据必须由管理员整组重置。
 
 ---
 
@@ -233,7 +247,8 @@ SM-DoubleAssistant-server/
 | POST | `/api/user/writeMsg` | 创建/更新学生信息 |
 | PUT | `/api/user/updateMsg` | 更新姓名/性别 |
 | GET | `/api/student/getMsg` | 获取学生信息 |
-| POST | `/api/student/selectTeacher` | 提交志愿（含时间窗口校验） |
+| POST | `/api/student/submitTeacherChoices` | 一次提交 3 个志愿（幂等、失败补偿） |
+| POST | `/api/student/selectTeacher` | 已停用；固定返回 410 |
 | GET | `/api/student/getTeachersForActivity` | 获取可选教师列表（含统计） |
 | GET | `/api/student/getTeacherList` | 查看活动内教师 |
 | GET | `/api/student/isInActivity` | 检查是否已加入活动 |
@@ -246,11 +261,11 @@ SM-DoubleAssistant-server/
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | `/api/teacher/detail` | 获取教师列表 |
-| PUT | `/api/student/updateTeacher` | 更新志愿选中状态 |
-| POST | `/api/teacher/selectStudent` | 选定学生（创建 Final 记录） |
-| DELETE | `/api/teacher/cancelSelect` | 取消选定 |
-| POST | `/api/teacher/selectStudentAndUpdate` | 原子操作：选定 + 更新状态 |
-| POST | `/api/teacher/cancelSelectAndUpdate` | 原子操作：取消 + 更新状态 |
+| PUT | `/api/student/updateTeacher` | 已停用；固定返回 410 |
+| POST | `/api/teacher/selectStudent` | 已停用；固定返回 410 |
+| DELETE | `/api/teacher/cancelSelect` | 已停用；固定返回 410 |
+| POST | `/api/teacher/selectStudentAndUpdate` | 一致性录取：服务端校验轮次、成员、配额并补偿失败 |
+| POST | `/api/teacher/cancelSelectAndUpdate` | 一致性取消：服务端校验轮次并补偿失败 |
 | GET | `/api/teacher/getSelectList` | 获取已选学生列表 |
 | GET | `/api/teacher/getChooseStudents` | 获取报名学生（含简历） |
 | GET | `/api/teacher/getChoosePageData` | 选择页聚合数据 |
@@ -293,7 +308,7 @@ SM-DoubleAssistant-server/
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | `/api/admin/getSelectedList` | 查看志愿记录 |
-| DELETE | `/api/admin/deleteSelected` | 删除志愿记录 |
+| DELETE | `/api/admin/deleteSelected` | 按学生+活动整组删除志愿记录 |
 | GET | `/api/admin/getFinalList` | 查看最终结果 |
 | POST | `/api/admin/addFinal` | 手动添加最终结果 |
 | DELETE | `/api/admin/resetVolunteer` | 重置学生志愿 |
