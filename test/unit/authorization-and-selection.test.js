@@ -8,6 +8,7 @@ const { describe, it } = require('node:test');
 const jwt = require('jsonwebtoken');
 const UserinfoController = require('../../app/controller/userinfo');
 const jwtMiddleware = require('../../app/middleware/jwt');
+const AdminService = require('../../app/service/admin');
 const StdinfoService = require('../../app/service/stdinfo');
 const TeainfoService = require('../../app/service/teainfo');
 const { canTeacherAccessStudent } = require('../../app/lib/access-control');
@@ -55,6 +56,104 @@ function choiceList() {
     { order: 2, teacherId: 'teacher-b' },
     { order: 3, teacherId: 'teacher-c' },
   ];
+}
+
+function finalizationFixture({
+  entry,
+  failAfterFinal = false,
+  failReservationCommit = false,
+}) {
+  const calls = {
+    chooseUpdates: [],
+    createdFinals: [],
+    createdReservations: [],
+    deletedFinals: [],
+    deletedLocks: [],
+    deletedReservations: [],
+    reservationUpdates: [],
+  };
+  const ctx = {
+    app: { config: {} },
+    logger: { error() {} },
+    model: {
+      Activity: { findById: async () => activeActivity() },
+      Choose: {
+        findOne: async () => ({
+          isChose: calls.chooseUpdates.some(item => item.update.$set.isChose),
+          order: 2,
+        }),
+        findOneAndUpdate: async (filter, update) => {
+          calls.chooseUpdates.push({ filter, update });
+          if (entry === 'teacher' && failAfterFinal) {
+            throw new Error('simulated choose update failure');
+          }
+          return { isChose: update.$set.isChose, order: 2 };
+        },
+      },
+      Final: {
+        countDocuments: async () => 0,
+        create: async value => {
+          calls.createdFinals.push(value);
+          return { _id: 'final-1', ...value };
+        },
+        deleteOne: async filter => {
+          calls.deletedFinals.push(filter);
+        },
+        findOne: async () => calls.createdFinals.at(-1) || null,
+      },
+      FinalReservation: {
+        create: async value => {
+          calls.createdReservations.push(value);
+          return { _id: 'reservation-1', ...value };
+        },
+        deleteOne: async filter => {
+          calls.deletedReservations.push(filter);
+        },
+        updateOne: async (filter, update) => {
+          calls.reservationUpdates.push({ filter, update });
+          if (entry === 'admin' && failAfterFinal) {
+            throw new Error('simulated reservation write failure');
+          }
+          return {
+            modifiedCount:
+              entry === 'teacher' && failReservationCommit
+                ? 0
+                : 1,
+          };
+        },
+        findOne: async () => (
+          failReservationCommit
+            ? {
+              activityId: '507f1f77bcf86cd799439011',
+              status: 'committed',
+              studentId: 'student-a',
+              teacherId: 'teacher-a',
+            }
+            : null
+        ),
+      },
+      Student: {
+        findOne: async () => ({
+          data: { name: 'Server Truth', phone: '13800000000' },
+          studentId: 'student-a',
+        }),
+      },
+      TeacherOperationLock: {
+        create: async value => value,
+        deleteOne: async filter => {
+          calls.deletedLocks.push(filter);
+        },
+      },
+      UserInActivity: {
+        findOne: async query => (
+          query.teacherId
+            ? { maxSelectNum: 2, teacherId: query.teacherId }
+            : { studentId: query.studentId }
+        ),
+      },
+    },
+  };
+  return { calls, ctx };
 }
 
 describe('object authorization and selection integrity', () => {
@@ -340,6 +439,110 @@ describe('object authorization and selection integrity', () => {
     assert.equal(submissionUpdates[0].update.$set.status, 'failed');
   });
 
+  it('keeps the shared finalization contract across admin and teacher entry points', async () => {
+    const activityId = '507f1f77bcf86cd799439011';
+    const scenarios = [
+      {
+        entry: 'admin',
+        expectedOrder: 0,
+        invoke: ctx => new AdminService(ctx).addFinal(
+          activityId,
+          'student-a',
+          'teacher-a'
+        ),
+      },
+      {
+        entry: 'teacher',
+        expectedOrder: 2,
+        invoke: ctx => new TeainfoService(ctx).selectStudentAndUpdate(
+          'student-a',
+          'teacher-a',
+          activityId
+        ),
+      },
+    ];
+
+    for (const scenario of scenarios) {
+      const { calls, ctx } = finalizationFixture({ entry: scenario.entry });
+      const result = await scenario.invoke(ctx);
+
+      assert.equal(result.code, 201, scenario.entry);
+      assert.deepEqual(calls.createdFinals, [{
+        activityId,
+        data: { name: 'Server Truth', phone: '13800000000' },
+        order: scenario.expectedOrder,
+        studentId: 'student-a',
+        teacherId: 'teacher-a',
+      }], scenario.entry);
+      assert.equal(calls.createdReservations.length, 1, scenario.entry);
+      assert.equal(calls.createdReservations[0].status, 'processing', scenario.entry);
+      assert.equal(calls.reservationUpdates.length, 1, scenario.entry);
+      assert.equal(
+        calls.reservationUpdates[0].update.$set.status,
+        'committed',
+        scenario.entry
+      );
+      assert.equal(calls.deletedLocks.length, 1, scenario.entry);
+      assert.equal(
+        calls.deletedLocks[0].ownerToken,
+        calls.createdReservations[0].ownerToken,
+        scenario.entry
+      );
+      assert.equal(
+        calls.chooseUpdates.length,
+        scenario.entry === 'teacher' ? 1 : 0,
+        scenario.entry
+      );
+    }
+  });
+
+  it('compensates owned finalization writes at both service entry points', async () => {
+    const activityId = '507f1f77bcf86cd799439011';
+    const scenarios = [
+      {
+        entry: 'admin',
+        invoke: ctx => new AdminService(ctx).addFinal(
+          activityId,
+          'student-a',
+          'teacher-a'
+        ),
+      },
+      {
+        entry: 'teacher',
+        invoke: ctx => new TeainfoService(ctx).selectStudentAndUpdate(
+          'student-a',
+          'teacher-a',
+          activityId
+        ),
+      },
+    ];
+
+    for (const scenario of scenarios) {
+      const { calls, ctx } = finalizationFixture({
+        entry: scenario.entry,
+        failAfterFinal: true,
+      });
+      const operation = scenario.invoke(ctx);
+      if (scenario.entry === 'admin') {
+        await assert.rejects(operation, /simulated reservation write failure/);
+      } else {
+        const result = await operation;
+        assert.equal(result.code, 500);
+        assert.match(result.msg, /已回滚/);
+      }
+
+      assert.equal(calls.createdFinals.length, 1, scenario.entry);
+      assert.equal(calls.deletedFinals.length, 1, scenario.entry);
+      assert.equal(calls.deletedReservations.length, 1, scenario.entry);
+      assert.equal(calls.deletedLocks.length, 1, scenario.entry);
+      assert.equal(
+        calls.deletedReservations[0].ownerToken,
+        calls.createdReservations[0].ownerToken,
+        scenario.entry
+      );
+    }
+  });
+
   it('derives final data and order on the server and compensates a failed status update', async () => {
     const activityId = '507f1f77bcf86cd799439011';
     const deletedFinals = [];
@@ -407,6 +610,26 @@ describe('object authorization and selection integrity', () => {
     assert.equal(createdFinals[0].order, 2);
     assert.equal(deletedFinals.length, 1);
     assert.equal(deletedReservations.length, 1);
+  });
+
+  it('treats a committed successor as idempotent without rolling back its writes', async () => {
+    const { calls, ctx } = finalizationFixture({
+      entry: 'teacher',
+      failReservationCommit: true,
+    });
+
+    const result = await new TeainfoService(ctx).selectStudentAndUpdate(
+      'student-a',
+      'teacher-a',
+      '507f1f77bcf86cd799439011'
+    );
+
+    assert.equal(result.code, 200);
+    assert.match(result.msg, /已录取/);
+    assert.equal(calls.chooseUpdates.length, 1);
+    assert.equal(calls.chooseUpdates[0].update.$set.isChose, true);
+    assert.equal(calls.deletedFinals.length, 0);
+    assert.equal(calls.deletedReservations.length, 0);
   });
 
   it('enforces the server-side teacher round window and configured quota', async () => {

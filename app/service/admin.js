@@ -6,15 +6,13 @@ const mongoose = require('mongoose');
 const fs = require('node:fs');
 const fsp = fs.promises;
 const path = require('node:path');
-const { isDuplicateKeyError } = require('../lib/selection-security');
 const {
-  acquireTeacherLock,
-  releaseTeacherLock,
-} = require('../lib/selection-lock');
+  FINALIZATION_POLICIES,
+  finalizeSelection,
+} = require('../application/finalize-selection');
 const { resolveExistingFileWithin } = require('../lib/safe-path');
 
 const BCRYPT_ROUNDS = 10;
-const FINAL_RESERVATION_MS = 30 * 1000;
 
 function escapeRegExp(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -373,148 +371,14 @@ class AdminService extends Service {
 
   async addFinal(activityId, studentId, teacherId) {
     const { ctx } = this;
-    const activityKey = String(activityId);
-    const ownerToken = await acquireTeacherLock(ctx.model, activityKey, teacherId);
-    if (!ownerToken) {
-      return { code: 409, msg: '导师录取操作正在处理中，请稍后重试' };
-    }
-    try {
-      const [ activity, student, studentMembership, teacherMembership, existing ] = await Promise.all([
-        ctx.model.Activity.findById(activityId),
-        ctx.model.Student.findOne({ studentId }),
-        ctx.model.UserInActivity.findOne({ activityId: activityKey, studentId }),
-        ctx.model.UserInActivity.findOne({ activityId: activityKey, teacherId }),
-        ctx.model.Final.findOne({ studentId, activityId: activityKey }),
-      ]);
-      if (!activity) {
-        return { code: 404, msg: '活动不存在' };
-      }
-      if (!student || !studentMembership || !teacherMembership) {
-        return { code: 400, msg: '导师或学生不属于此活动' };
-      }
-      if (existing) {
-        return { code: 409, msg: '该学生在此活动中已有录取记录' };
-      }
-      const quota = Number(teacherMembership.maxSelectNum);
-      if (!Number.isInteger(quota) || quota < 1) {
-        return { code: 409, msg: '导师名额尚未配置' };
-      }
-      const selectedCount = await ctx.model.Final.countDocuments({
-        activityId: activityKey,
-        teacherId,
-      });
-      if (selectedCount >= quota) {
-        return { code: 409, msg: '已达到最大选择人数限制' };
-      }
-
-      const now = new Date();
-      const lockUntil = new Date(now.getTime() + FINAL_RESERVATION_MS);
-      let reservation;
-      let ownsReservation = false;
-      try {
-        reservation = await ctx.model.FinalReservation.create({
-          activityId: activityKey,
-          lockUntil,
-          ownerToken,
-          status: 'processing',
-          studentId,
-          teacherId,
-          updatedAt: now,
-        });
-        ownsReservation = true;
-      } catch (error) {
-        if (!isDuplicateKeyError(error)) {
-          throw error;
-        }
-        reservation = await ctx.model.FinalReservation.findOne({
-          activityId: activityKey,
-          studentId,
-        });
-      }
-      if (!ownsReservation) {
-        if (!reservation || reservation.status === 'committed') {
-          return { code: 409, msg: '该学生在此活动中已有录取记录' };
-        }
-        if (!reservation.lockUntil || new Date(reservation.lockUntil) > now) {
-          return { code: 409, msg: '该学生录取正在处理中，请稍后重试' };
-        }
-        reservation = await ctx.model.FinalReservation.findOneAndUpdate(
-          {
-            _id: reservation._id,
-            lockUntil: reservation.lockUntil,
-            status: 'processing',
-          },
-          {
-            $set: {
-              lockUntil,
-              ownerToken,
-              teacherId,
-              updatedAt: now,
-            },
-          },
-          { new: true }
-        );
-        ownsReservation = Boolean(reservation);
-        if (!ownsReservation) {
-          return { code: 409, msg: '该学生录取正在处理中，请稍后重试' };
-        }
-      }
-
-      let createdFinal = false;
-      try {
-        await ctx.model.Final.create({
-          activityId: activityKey,
-          data: student.data || {},
-          order: 0,
-          studentId,
-          teacherId,
-        });
-        createdFinal = true;
-        const committed = await ctx.model.FinalReservation.updateOne(
-          {
-            _id: reservation._id,
-            ownerToken,
-            status: 'processing',
-          },
-          {
-            $set: {
-              lockUntil: now,
-              ownerToken: '',
-              status: 'committed',
-              updatedAt: new Date(),
-            },
-          }
-        );
-        if (committed.modifiedCount !== 1) {
-          throw new Error('admin final reservation ownership lost');
-        }
-        return { code: 201, msg: '录取记录添加成功' };
-      } catch (error) {
-        if (createdFinal) {
-          await ctx.model.Final.deleteOne({
-            activityId: activityKey,
-            studentId,
-            teacherId,
-          });
-        }
-        if (ownsReservation) {
-          await ctx.model.FinalReservation.deleteOne({
-            _id: reservation._id,
-            ownerToken,
-          });
-        }
-        throw error;
-      }
-    } finally {
-      await releaseTeacherLock(
-        ctx.model,
-        activityKey,
-        teacherId,
-        ownerToken
-      ).catch(error => {
-        ctx.logger.error('release admin final lock failed:', error);
-      });
-    }
+    return finalizeSelection({
+      activityId,
+      logger: ctx.logger,
+      models: ctx.model,
+      policy: FINALIZATION_POLICIES.ADMIN,
+      studentId,
+      teacherId,
+    });
   }
 
   async getFinalList(studentId, teacherId, activityId) {
