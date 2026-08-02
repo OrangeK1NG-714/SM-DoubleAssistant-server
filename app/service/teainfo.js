@@ -2,7 +2,6 @@
 
 const Service = require('egg').Service;
 const {
-  isDuplicateKeyError,
   isWithinWindow,
   teacherWindow,
 } = require('../lib/selection-security');
@@ -10,8 +9,10 @@ const {
   acquireTeacherLock,
   releaseTeacherLock,
 } = require('../lib/selection-lock');
-
-const FINAL_RESERVATION_MS = 30 * 1000;
+const {
+  FINALIZATION_POLICIES,
+  finalizeSelection,
+} = require('../application/finalize-selection');
 
 class TeainfoService extends Service {
   async getTeaDetail() {
@@ -90,154 +91,14 @@ class TeainfoService extends Service {
 
   async selectStudentAndUpdate(studentId, teacherId, activityId) {
     const { ctx } = this;
-    const selection = await this._getSelectionContext(studentId, teacherId, activityId);
-    if (selection.error) {
-      return selection.error;
-    }
-    const { activityKey, choose, student, teacherMembership } = selection;
-    const ownerToken = await this._acquireTeacherLock(activityKey, teacherId);
-    if (!ownerToken) {
-      return { code: 409, msg: '导师选择正在处理中，请稍后重试' };
-    }
-
-    let createdFinal = false;
-    let ownsReservation = false;
-    try {
-      let existingFinal = await ctx.model.Final.findOne({
-        activityId: activityKey,
-        studentId,
-      });
-      if (existingFinal && existingFinal.teacherId !== teacherId) {
-        return { code: 409, msg: '该学生已被其他导师录取' };
-      }
-
-      if (!existingFinal) {
-        const quota = Number(teacherMembership.maxSelectNum);
-        if (!Number.isInteger(quota) || quota < 1) {
-          return { code: 409, msg: '导师名额尚未配置' };
-        }
-        const selectedCount = await ctx.model.Final.countDocuments({
-          activityId: activityKey,
-          teacherId,
-        });
-        if (selectedCount >= quota) {
-          return { code: 409, msg: '已达到最大选择人数限制' };
-        }
-      }
-
-      let reservation;
-      const reservationNow = new Date();
-      const reservationLockUntil = new Date(
-        reservationNow.getTime() + FINAL_RESERVATION_MS
-      );
-      try {
-        reservation = await ctx.model.FinalReservation.create({
-          activityId: activityKey,
-          lockUntil: reservationLockUntil,
-          ownerToken,
-          status: 'processing',
-          studentId,
-          teacherId,
-          updatedAt: reservationNow,
-        });
-        ownsReservation = true;
-      } catch (error) {
-        if (!isDuplicateKeyError(error)) {
-          throw error;
-        }
-        reservation = await ctx.model.FinalReservation.findOne({
-          activityId: activityKey,
-          studentId,
-        });
-      }
-      if (
-        reservation
-        && reservation.status === 'processing'
-        && (
-          !reservation.lockUntil
-          || new Date(reservation.lockUntil) <= reservationNow
-        )
-      ) {
-        reservation = await ctx.model.FinalReservation.findOneAndUpdate(
-          {
-            _id: reservation._id,
-            lockUntil: reservation.lockUntil,
-            status: 'processing',
-          },
-          {
-            $set: {
-              lockUntil: reservationLockUntil,
-              ownerToken,
-              teacherId,
-              updatedAt: reservationNow,
-            },
-          },
-          { new: true }
-        );
-        ownsReservation = Boolean(reservation);
-      }
-      if (!reservation || reservation.teacherId !== teacherId) {
-        return { code: 409, msg: '该学生已被其他导师录取' };
-      }
-      if (reservation.status === 'processing' && !ownsReservation) {
-        return { code: 409, msg: '该学生录取正在处理中，请稍后重试' };
-      }
-
-      if (!existingFinal) {
-        existingFinal = await ctx.model.Final.create({
-          activityId: activityKey,
-          data: student.data || {},
-          order: choose.order,
-          studentId,
-          teacherId,
-        });
-        createdFinal = true;
-      }
-      const updatedChoose = await ctx.model.Choose.findOneAndUpdate(
-        { activityId: activityKey, studentId, teacherId },
-        { $set: { isChose: true } },
-        { new: true }
-      );
-      if (!updatedChoose) {
-        throw new Error('choice disappeared during final selection');
-      }
-      await ctx.model.FinalReservation.updateOne(
-        ownsReservation
-          ? { activityId: activityKey, ownerToken, studentId, teacherId }
-          : { activityId: activityKey, studentId, teacherId },
-        {
-          $set: {
-            lockUntil: new Date(),
-            ownerToken: '',
-            status: 'committed',
-            updatedAt: new Date(),
-          },
-        }
-      );
-      return {
-        code: createdFinal ? 201 : 200,
-        msg: createdFinal ? '老师已选学生' : '该学生已录取',
-        data: existingFinal,
-      };
-    } catch (error) {
-      if (createdFinal) {
-        await ctx.model.Final.deleteOne({ activityId: activityKey, studentId, teacherId });
-      }
-      if (ownsReservation) {
-        await ctx.model.FinalReservation.deleteOne({
-          activityId: activityKey,
-          ownerToken,
-          studentId,
-          teacherId,
-        });
-      }
-      ctx.logger.error('selectStudentAndUpdate failed:', error);
-      return { code: 500, msg: '录取失败，操作已回滚' };
-    } finally {
-      await this._releaseTeacherLock(activityKey, teacherId, ownerToken).catch(error => {
-        ctx.logger.error('release teacher selection lock failed:', error);
-      });
-    }
+    return finalizeSelection({
+      activityId,
+      logger: ctx.logger,
+      models: ctx.model,
+      policy: FINALIZATION_POLICIES.TEACHER,
+      studentId,
+      teacherId,
+    });
   }
 
   async cancelSelectAndUpdate(studentId, teacherId, activityId) {
